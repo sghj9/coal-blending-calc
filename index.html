@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>智能配煤计算器 | 友好提示 · 字体增大</title>
+    <title>配煤计算器</title>
     <style>
         * {
             box-sizing: border-box;
@@ -56,6 +56,7 @@
             font-size: 1.4rem;
         }
 
+        /* 混合指标列表 (保持 v1.10 样式) */
         .metrics-list {
             width: 100%;
             background: #ffffff;
@@ -64,7 +65,6 @@
             margin-bottom: 0;
             border: 1px solid #e9edf2;
         }
-
         .metric-row {
             display: flex;
             justify-content: space-between;
@@ -73,18 +73,15 @@
             border-bottom: 1px solid #f0f2f6;
             background: #ffffff;
         }
-
         .metric-row:last-child {
             border-bottom: none;
         }
-
         .metric-name {
             font-size: 1rem;
             font-weight: 600;
             color: #2c4f6e;
             min-width: 90px;
         }
-
         .metric-value {
             font-size: 1.2rem;
             font-weight: 700;
@@ -93,13 +90,11 @@
             flex: 1;
             margin: 0 12px;
         }
-
         .metric-unit {
             font-size: 0.8rem;
             font-weight: normal;
             color: #6c8dae;
         }
-
         .status-badge {
             font-size: 0.8rem;
             font-weight: 600;
@@ -109,22 +104,20 @@
             min-width: 68px;
             text-align: center;
         }
-
         .status-pass {
             background: #e0f5ea;
             color: #1e7b48;
         }
-
         .status-fail {
             background: #ffe5e5;
             color: #bc3f31;
         }
-
         .status-neutral {
             background: #eef2f9;
             color: #5a6e8a;
         }
 
+        /* 目标范围面板 (保持 v1.10 样式) */
         .target-row {
             display: flex;
             flex-wrap: wrap;
@@ -132,7 +125,6 @@
             justify-content: space-between;
             margin-bottom: 24px;
         }
-
         .target-item {
             flex: 1;
             min-width: 120px;
@@ -142,7 +134,6 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.02);
             border: 1px solid #e6edf4;
         }
-
         .target-item label {
             font-size: 0.85rem;
             font-weight: 600;
@@ -150,13 +141,11 @@
             color: #2c4c6e;
             margin-bottom: 6px;
         }
-
         .range-input {
             display: flex;
             gap: 8px;
             align-items: center;
         }
-
         .range-input input {
             width: 45%;
             border: 1px solid #cbdbe6;
@@ -173,12 +162,13 @@
             margin: 0;
         }
 
+        /* ========= 三个按钮：字体比 v1.10 增大 ========= */
         .btn-unified {
             border: none;
             padding: 12px 24px;
             border-radius: 60px;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 1.05rem;   /* 原为 0.95rem，增大 */
             cursor: pointer;
             transition: 0.2s;
             display: inline-block;
@@ -202,21 +192,19 @@
             margin-top: 18px;
         }
 
+        /* ========= 表格部分：内容字号比 v1.10 增大 ========= */
         .table-wrapper {
             overflow-x: auto;
             margin: 0 -4px;
             border-radius: 24px;
         }
-
         .coal-table {
             min-width: 860px;
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
-            font-size: 0.85rem;
             background: white;
         }
-
         .coal-table th {
             background: #eef3fc;
             padding: 12px 8px;
@@ -225,9 +213,8 @@
             text-align: center;
             border-bottom: 1.5px solid #dce5ef;
             white-space: nowrap;
-            font-size: 0.85rem;
+            font-size: 0.95rem;   /* 原为 0.85rem，增大 */
         }
-
         .coal-table td {
             padding: 10px 4px;
             text-align: center;
@@ -235,7 +222,6 @@
             vertical-align: middle;
             background-color: white;
         }
-
         .coal-table th:first-child,
         .coal-table td:first-child {
             position: sticky;
@@ -248,24 +234,21 @@
             background-color: #eef3fc;
             z-index: 11;
         }
-
         .coal-table input, .coal-table .name-input {
             width: 90px;
             padding: 8px 4px;
             text-align: center;
             border: 1px solid #cfdfed;
             border-radius: 16px;
-            font-size: 0.8rem;
+            font-size: 0.9rem;   /* 原为 0.8rem，增大 */
             font-weight: 500;
             background: #ffffff;
         }
-
         .coal-table .name-input {
             width: 110px;
             font-weight: 600;
             background: #fefef5;
         }
-
         .coal-table input:focus {
             outline: none;
             border-color: #3b82f6;
@@ -306,8 +289,8 @@
             .metric-row { padding: 12px 12px; }
             .metric-name { font-size: 0.9rem; min-width: 75px; }
             .metric-value { font-size: 1rem; }
-            .coal-table input, .coal-table .name-input { width: 75px; font-size: 0.75rem; padding: 6px 2px; }
-            .btn-unified { padding: 10px 16px; font-size: 0.85rem; min-width: 160px; }
+            .coal-table input, .coal-table .name-input { width: 75px; font-size: 0.85rem; padding: 6px 2px; }
+            .btn-unified { padding: 10px 16px; font-size: 0.95rem; min-width: 160px; }
         }
     </style>
 </head>
@@ -564,7 +547,7 @@
         if (!skipConfirm) alert(message);
     }
 
-    // ---------- 友好提示：煤种表格缺失检查 ----------
+    // 友好提示：煤种表格缺失检查
     function checkCoalTableCompleteness() {
         const missing = [];
         const rows = document.querySelectorAll('#tableBody tr');
@@ -574,7 +557,7 @@
             const coalName = nameInput ? nameInput.value.trim() : `第${i+1}行`;
             if (!nameInput || nameInput.value.trim() === "") {
                 missing.push(`${coalName}的煤种名称`);
-                continue; // 名称缺失时不再检查该行其他字段，避免重复提示
+                continue;
             }
             const priceInput = row.cells[1]?.querySelector('input');
             const ashInput = row.cells[2]?.querySelector('input');
@@ -615,7 +598,6 @@
         return missing;
     }
 
-    // 带友好提示的确认刷新
     function confirmAndRefresh(checkFunc, successMsg, refreshAction) {
         const missing = checkFunc();
         if (missing.length > 0) {
@@ -624,7 +606,6 @@
                 refreshAction();
                 alert(successMsg);
             }
-            // 用户选择返回填写，不执行任何计算
         } else {
             refreshAction();
             alert(successMsg);
@@ -705,7 +686,6 @@
                 checkCoalTableCompleteness,
                 '✅ 指标和配比已确认，计算结果已更新',
                 () => {
-                    // 同步表格最新数据到 coals 数组
                     const rows = document.querySelectorAll('#tableBody tr');
                     for (let i = 0; i < rows.length && i < coals.length; i++) {
                         const row = rows[i];
