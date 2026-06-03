@@ -56,7 +56,6 @@
             font-size: 1.4rem;
         }
 
-        /* 混合指标列表 (保持 v1.10 样式) */
         .metrics-list {
             width: 100%;
             background: #ffffff;
@@ -117,7 +116,6 @@
             color: #5a6e8a;
         }
 
-        /* 目标范围面板 (保持 v1.10 样式) */
         .target-row {
             display: flex;
             flex-wrap: wrap;
@@ -162,13 +160,12 @@
             margin: 0;
         }
 
-        /* ========= 三个按钮：字体比 v1.10 增大 ========= */
         .btn-unified {
             border: none;
             padding: 12px 24px;
             border-radius: 60px;
             font-weight: 600;
-            font-size: 1.05rem;   /* 原为 0.95rem，增大 */
+            font-size: 1.05rem;
             cursor: pointer;
             transition: 0.2s;
             display: inline-block;
@@ -192,7 +189,6 @@
             margin-top: 18px;
         }
 
-        /* ========= 表格部分：内容字号比 v1.10 增大 ========= */
         .table-wrapper {
             overflow-x: auto;
             margin: 0 -4px;
@@ -213,7 +209,7 @@
             text-align: center;
             border-bottom: 1.5px solid #dce5ef;
             white-space: nowrap;
-            font-size: 0.95rem;   /* 原为 0.85rem，增大 */
+            font-size: 0.95rem;
         }
         .coal-table td {
             padding: 10px 4px;
@@ -240,7 +236,7 @@
             text-align: center;
             border: 1px solid #cfdfed;
             border-radius: 16px;
-            font-size: 0.9rem;   /* 原为 0.8rem，增大 */
+            font-size: 0.9rem;
             font-weight: 500;
             background: #ffffff;
         }
@@ -296,7 +292,6 @@
 </head>
 <body>
 <div class="app">
-    <!-- 模块1：混合煤实际指标 -->
     <div class="card">
         <div class="card-header">
             <div class="title-main">
@@ -306,7 +301,6 @@
         <div class="metrics-list" id="metricsList"></div>
     </div>
 
-    <!-- 模块2：煤种指标 & 配比 -->
     <div class="card">
         <div class="card-header">
             <div class="title-main">
@@ -328,10 +322,9 @@
         <div class="btn-center">
             <button class="btn-unified" id="confirmCoalBtn">✓ 确认指标和配比</button>
         </div>
-        <div class="total-summary" id="totalRatioInfo">总配比份数: 0.00 成</div>
+        <div class="total-summary" id="totalRatioInfo">配比总和: 0.00 成 (仅供查看)</div>
     </div>
 
-    <!-- 模块3：钢厂目标范围 -->
     <div class="card">
         <div class="card-header">
             <div class="title-main">
@@ -344,11 +337,10 @@
             <button class="btn-unified" id="applyTargetBtn">✓ 确认目标范围</button>
         </div>
     </div>
-    <div class="footer">✅ 修改后请点击对应确认按钮 | 配比单位为“成”（1成 = 10%） | 确认前会自动检查未填项</div>
+    <div class="footer">✅ 修改后请点击对应确认按钮 | 混合指标计算方式：按配比(成)*0.1加权求和后，除以煤种数量</div>
 </div>
 
 <script>
-    // ---------- 默认煤种数据（配比单位：成）----------
     const DEFAULT_COALS = [
         { name: "神华9层", price: 650, ash: 6.5, sulfur: 3.0, volatile: 31, glue: 90, ratio: 1.0 },
         { name: "11#主焦混洗", price: 900, ash: 9.0, sulfur: 0.8, volatile: 29, glue: 90, ratio: 2.0 },
@@ -448,33 +440,34 @@
 
     function updateTotalRatioDisplay() {
         let total = coals.reduce((sum, c) => sum + (c.ratio > 0 ? c.ratio : 0), 0);
-        document.getElementById('totalRatioInfo').innerHTML = `📐 总配比份数: ${total.toFixed(2)} 成  (1成 = 10%，混合计算已自动转换)`;
+        document.getElementById('totalRatioInfo').innerHTML = `📐 配比总和: ${total.toFixed(2)} 成 (仅供查看)`;
     }
 
-    function calculateWeightedAverage() {
-        let totalWeight = 0;
+    // 计算混合指标：按配比(成)*0.1加权求和，再除以煤种数量
+    function calculateHybridMetrics() {
+        const coalCount = coals.length;
+        if (coalCount === 0) {
+            return { ash: 0, sulfur: 0, volatile: 0, glue: 0, price: 0 };
+        }
+
         let sumAsh = 0, sumSulfur = 0, sumVolatile = 0, sumGlue = 0, sumPrice = 0;
+
         for (let c of coals) {
-            let ratioCheng = c.ratio > 0 ? c.ratio : 0;
-            if (ratioCheng === 0) continue;
-            let weight = ratioCheng * 0.1;
-            totalWeight += weight;
-            sumAsh += c.ash * weight;
-            sumSulfur += c.sulfur * weight;
-            sumVolatile += c.volatile * weight;
-            sumGlue += c.glue * weight;
-            sumPrice += c.price * weight;
+            let weight = (c.ratio || 0) * 0.1;   // 确保 ratio 不是 NaN/null
+            sumAsh += (c.ash || 0) * weight;
+            sumSulfur += (c.sulfur || 0) * weight;
+            sumVolatile += (c.volatile || 0) * weight;
+            sumGlue += (c.glue || 0) * weight;
+            sumPrice += (c.price || 0) * weight;
         }
-        if (totalWeight === 0) {
-            return { ash: 0, sulfur: 0, volatile: 0, glue: 0, price: 0, totalWeight: 0 };
-        }
+
+        const denominator = coalCount;
         return {
-            ash: sumAsh / totalWeight,
-            sulfur: sumSulfur / totalWeight,
-            volatile: sumVolatile / totalWeight,
-            glue: sumGlue / totalWeight,
-            price: sumPrice / totalWeight,
-            totalWeight: totalWeight
+            ash: sumAsh / denominator,
+            sulfur: sumSulfur / denominator,
+            volatile: sumVolatile / denominator,
+            glue: sumGlue / denominator,
+            price: sumPrice / denominator
         };
     }
 
@@ -519,35 +512,63 @@
         });
     }
 
-    function fetchTargetBoundsFromInputs() {
-        const ashMin = document.getElementById('target_ash_min')?.value;
-        const ashMax = document.getElementById('target_ash_max')?.value;
-        const sulfurMin = document.getElementById('target_sulfur_min')?.value;
-        const sulfurMax = document.getElementById('target_sulfur_max')?.value;
-        const volMin = document.getElementById('target_volatile_min')?.value;
-        const volMax = document.getElementById('target_volatile_max')?.value;
-        const glueMin = document.getElementById('target_glue_min')?.value;
-        const glueMax = document.getElementById('target_glue_max')?.value;
-        
-        if (ashMin !== undefined) targetBounds.ash.min = parseFloat(ashMin) || 0;
-        if (ashMax !== undefined) targetBounds.ash.max = parseFloat(ashMax) || 20;
-        if (sulfurMin !== undefined) targetBounds.sulfur.min = parseFloat(sulfurMin) || 0;
-        if (sulfurMax !== undefined) targetBounds.sulfur.max = parseFloat(sulfurMax) || 5;
-        if (volMin !== undefined) targetBounds.volatile.min = parseFloat(volMin) || 0;
-        if (volMax !== undefined) targetBounds.volatile.max = parseFloat(volMax) || 50;
-        if (glueMin !== undefined) targetBounds.glue.min = parseFloat(glueMin) || 0;
-        if (glueMax !== undefined) targetBounds.glue.max = parseFloat(glueMax) || 120;
+    // 从界面读取目标范围，自动处理空值（默认0）和上下限交换（静默）
+    function fetchTargetBoundsFromInputs(silent = true) {
+        const ashMinInput = document.getElementById('target_ash_min');
+        const ashMaxInput = document.getElementById('target_ash_max');
+        const sulfurMinInput = document.getElementById('target_sulfur_min');
+        const sulfurMaxInput = document.getElementById('target_sulfur_max');
+        const volMinInput = document.getElementById('target_volatile_min');
+        const volMaxInput = document.getElementById('target_volatile_max');
+        const glueMinInput = document.getElementById('target_glue_min');
+        const glueMaxInput = document.getElementById('target_glue_max');
+
+        let ashMin = ashMinInput ? parseFloat(ashMinInput.value) : 0;
+        let ashMax = ashMaxInput ? parseFloat(ashMaxInput.value) : 20;
+        let sulfurMin = sulfurMinInput ? parseFloat(sulfurMinInput.value) : 0;
+        let sulfurMax = sulfurMaxInput ? parseFloat(sulfurMaxInput.value) : 5;
+        let volMin = volMinInput ? parseFloat(volMinInput.value) : 0;
+        let volMax = volMaxInput ? parseFloat(volMaxInput.value) : 50;
+        let glueMin = glueMinInput ? parseFloat(glueMinInput.value) : 0;
+        let glueMax = glueMaxInput ? parseFloat(glueMaxInput.value) : 120;
+
+        // 空值处理
+        if (isNaN(ashMin)) ashMin = 0;
+        if (isNaN(ashMax)) ashMax = 20;
+        if (isNaN(sulfurMin)) sulfurMin = 0;
+        if (isNaN(sulfurMax)) sulfurMax = 5;
+        if (isNaN(volMin)) volMin = 0;
+        if (isNaN(volMax)) volMax = 50;
+        if (isNaN(glueMin)) glueMin = 0;
+        if (isNaN(glueMax)) glueMax = 120;
+
+        // 交换逻辑（静默）
+        if (ashMin > ashMax) { let t = ashMin; ashMin = ashMax; ashMax = t; if (!silent) alert("灰分下限大于上限，已自动交换为 " + ashMin.toFixed(2) + " ~ " + ashMax.toFixed(2)); }
+        if (sulfurMin > sulfurMax) { let t = sulfurMin; sulfurMin = sulfurMax; sulfurMax = t; if (!silent) alert("硫分下限大于上限，已自动交换为 " + sulfurMin.toFixed(2) + " ~ " + sulfurMax.toFixed(2)); }
+        if (volMin > volMax) { let t = volMin; volMin = volMax; volMax = t; if (!silent) alert("挥发分下限大于上限，已自动交换为 " + volMin.toFixed(2) + " ~ " + volMax.toFixed(2)); }
+        if (glueMin > glueMax) { let t = glueMin; glueMin = glueMax; glueMax = t; if (!silent) alert("粘结下限大于上限，已自动交换为 " + glueMin.toFixed(2) + " ~ " + glueMax.toFixed(2)); }
+
+        targetBounds.ash = { min: ashMin, max: ashMax };
+        targetBounds.sulfur = { min: sulfurMin, max: sulfurMax };
+        targetBounds.volatile = { min: volMin, max: volMax };
+        targetBounds.glue = { min: glueMin, max: glueMax };
+
+        // 将交换后的值写回输入框，保持界面同步
+        if (ashMinInput) { ashMinInput.value = ashMin; ashMaxInput.value = ashMax; }
+        if (sulfurMinInput) { sulfurMinInput.value = sulfurMin; sulfurMaxInput.value = sulfurMax; }
+        if (volMinInput) { volMinInput.value = volMin; volMaxInput.value = volMax; }
+        if (glueMinInput) { glueMinInput.value = glueMin; glueMaxInput.value = glueMax; }
     }
 
     function refreshAndNotify(message, skipConfirm = false) {
-        fetchTargetBoundsFromInputs();
-        const avg = calculateWeightedAverage();
+        fetchTargetBoundsFromInputs(true); // 静默修正
+        const avg = calculateHybridMetrics();
         updateResultUI(avg);
         updateTotalRatioDisplay();
         if (!skipConfirm) alert(message);
     }
 
-    // 友好提示：煤种表格缺失检查
+    // 检查煤种表格是否有空值（返回缺失项列表）
     function checkCoalTableCompleteness() {
         const missing = [];
         const rows = document.querySelectorAll('#tableBody tr');
@@ -557,7 +578,7 @@
             const coalName = nameInput ? nameInput.value.trim() : `第${i+1}行`;
             if (!nameInput || nameInput.value.trim() === "") {
                 missing.push(`${coalName}的煤种名称`);
-                continue;
+                // 名称缺失不影响数值计算，继续检查其他字段
             }
             const priceInput = row.cells[1]?.querySelector('input');
             const ashInput = row.cells[2]?.querySelector('input');
@@ -566,42 +587,61 @@
             const glueInput = row.cells[5]?.querySelector('input');
             const ratioInput = row.cells[6]?.querySelector('input');
             
-            if (!priceInput || priceInput.value === "" || isNaN(parseFloat(priceInput.value))) missing.push(`${coalName}的煤价`);
-            if (!ashInput || ashInput.value === "" || isNaN(parseFloat(ashInput.value))) missing.push(`${coalName}的灰分`);
-            if (!sulfurInput || sulfurInput.value === "" || isNaN(parseFloat(sulfurInput.value))) missing.push(`${coalName}的硫分`);
-            if (!volatileInput || volatileInput.value === "" || isNaN(parseFloat(volatileInput.value))) missing.push(`${coalName}的挥发分`);
-            if (!glueInput || glueInput.value === "" || isNaN(parseFloat(glueInput.value))) missing.push(`${coalName}的粘结`);
-            if (!ratioInput || ratioInput.value === "" || isNaN(parseFloat(ratioInput.value))) missing.push(`${coalName}的配比`);
+            const priceVal = priceInput ? priceInput.value : "";
+            const ashVal = ashInput ? ashInput.value : "";
+            const sulfurVal = sulfurInput ? sulfurInput.value : "";
+            const volatileVal = volatileInput ? volatileInput.value : "";
+            const glueVal = glueInput ? glueInput.value : "";
+            const ratioVal = ratioInput ? ratioInput.value : "";
+
+            if (priceVal === "" || isNaN(parseFloat(priceVal))) missing.push(`${coalName}的煤价`);
+            if (ashVal === "" || isNaN(parseFloat(ashVal))) missing.push(`${coalName}的灰分`);
+            if (sulfurVal === "" || isNaN(parseFloat(sulfurVal))) missing.push(`${coalName}的硫分`);
+            if (volatileVal === "" || isNaN(parseFloat(volatileVal))) missing.push(`${coalName}的挥发分`);
+            if (glueVal === "" || isNaN(parseFloat(glueVal))) missing.push(`${coalName}的粘结`);
+            if (ratioVal === "" || isNaN(parseFloat(ratioVal))) missing.push(`${coalName}的配比`);
         }
         return missing;
     }
 
-    // 目标范围缺失检查（中文友好）
-    function checkTargetCompleteness() {
-        const missing = [];
-        const mapping = [
-            { id: 'target_ash_min', name: '灰分的下限' },
-            { id: 'target_ash_max', name: '灰分的上限' },
-            { id: 'target_sulfur_min', name: '硫分的下限' },
-            { id: 'target_sulfur_max', name: '硫分的上限' },
-            { id: 'target_volatile_min', name: '挥发分的下限' },
-            { id: 'target_volatile_max', name: '挥发分的上限' },
-            { id: 'target_glue_min', name: '粘结的下限' },
-            { id: 'target_glue_max', name: '粘结的上限' }
-        ];
-        for (let item of mapping) {
-            const input = document.getElementById(item.id);
-            if (!input || input.value === "" || isNaN(parseFloat(input.value))) {
-                missing.push(item.name);
-            }
+    // 读取表格数据到 coals 数组，并将空值转为 0
+    function syncCoalsFromTable() {
+        const rows = document.querySelectorAll('#tableBody tr');
+        for (let i = 0; i < rows.length && i < coals.length; i++) {
+            const row = rows[i];
+            const nameInput = row.cells[0].querySelector('input');
+            coals[i].name = nameInput ? nameInput.value.trim() : "未命名";
+
+            const priceVal = row.cells[1].querySelector('input')?.value;
+            coals[i].price = parseFloat(priceVal);
+            if (isNaN(coals[i].price)) coals[i].price = 0;
+
+            const ashVal = row.cells[2].querySelector('input')?.value;
+            coals[i].ash = parseFloat(ashVal);
+            if (isNaN(coals[i].ash)) coals[i].ash = 0;
+
+            const sulfurVal = row.cells[3].querySelector('input')?.value;
+            coals[i].sulfur = parseFloat(sulfurVal);
+            if (isNaN(coals[i].sulfur)) coals[i].sulfur = 0;
+
+            const volatileVal = row.cells[4].querySelector('input')?.value;
+            coals[i].volatile = parseFloat(volatileVal);
+            if (isNaN(coals[i].volatile)) coals[i].volatile = 0;
+
+            const glueVal = row.cells[5].querySelector('input')?.value;
+            coals[i].glue = parseFloat(glueVal);
+            if (isNaN(coals[i].glue)) coals[i].glue = 0;
+
+            const ratioVal = row.cells[6].querySelector('input')?.value;
+            coals[i].ratio = parseFloat(ratioVal);
+            if (isNaN(coals[i].ratio)) coals[i].ratio = 0;
         }
-        return missing;
     }
 
     function confirmAndRefresh(checkFunc, successMsg, refreshAction) {
         const missing = checkFunc();
         if (missing.length > 0) {
-            const msg = "以下数值未填写：\n" + missing.join("\n") + "\n\n是否仍继续计算？";
+            const msg = "以下数值未填写：\n" + missing.join("\n") + "\n\n是否仍继续计算？(未填数值将自动视为0)";
             if (confirm(msg)) {
                 refreshAction();
                 alert(successMsg);
@@ -686,31 +726,92 @@
                 checkCoalTableCompleteness,
                 '✅ 指标和配比已确认，计算结果已更新',
                 () => {
-                    const rows = document.querySelectorAll('#tableBody tr');
-                    for (let i = 0; i < rows.length && i < coals.length; i++) {
-                        const row = rows[i];
-                        coals[i].name = row.cells[0].querySelector('input').value.trim();
-                        coals[i].price = parseFloat(row.cells[1].querySelector('input').value);
-                        coals[i].ash = parseFloat(row.cells[2].querySelector('input').value);
-                        coals[i].sulfur = parseFloat(row.cells[3].querySelector('input').value);
-                        coals[i].volatile = parseFloat(row.cells[4].querySelector('input').value);
-                        coals[i].glue = parseFloat(row.cells[5].querySelector('input').value);
-                        coals[i].ratio = parseFloat(row.cells[6].querySelector('input').value);
-                    }
+                    syncCoalsFromTable();
                     refreshAndNotify('', true);
                 }
             );
         });
         
         document.getElementById('applyTargetBtn').addEventListener('click', () => {
-            confirmAndRefresh(
-                checkTargetCompleteness,
-                '✅ 目标范围已应用，计算结果已更新',
-                () => {
-                    refreshAndNotify('', true);
-                }
-            );
+            // 先检查是否有空值
+            const missingTarget = checkTargetCompleteness();
+            if (missingTarget.length > 0) {
+                const msg = "以下目标范围未填写：\n" + missingTarget.join("\n") + "\n\n是否仍继续计算？(未填数值将自动视为0)";
+                if (!confirm(msg)) return;
+            }
+            // 获取当前输入框的值（可能颠倒），进行交换并提示用户确认
+            const ashMinInput = document.getElementById('target_ash_min');
+            const ashMaxInput = document.getElementById('target_ash_max');
+            const sulfurMinInput = document.getElementById('target_sulfur_min');
+            const sulfurMaxInput = document.getElementById('target_sulfur_max');
+            const volMinInput = document.getElementById('target_volatile_min');
+            const volMaxInput = document.getElementById('target_volatile_max');
+            const glueMinInput = document.getElementById('target_glue_min');
+            const glueMaxInput = document.getElementById('target_glue_max');
+
+            let ashMin = ashMinInput ? parseFloat(ashMinInput.value) : 0;
+            let ashMax = ashMaxInput ? parseFloat(ashMaxInput.value) : 20;
+            let sulfurMin = sulfurMinInput ? parseFloat(sulfurMinInput.value) : 0;
+            let sulfurMax = sulfurMaxInput ? parseFloat(sulfurMaxInput.value) : 5;
+            let volMin = volMinInput ? parseFloat(volMinInput.value) : 0;
+            let volMax = volMaxInput ? parseFloat(volMaxInput.value) : 50;
+            let glueMin = glueMinInput ? parseFloat(glueMinInput.value) : 0;
+            let glueMax = glueMaxInput ? parseFloat(glueMaxInput.value) : 120;
+
+            // 空值转0
+            if (isNaN(ashMin)) ashMin = 0;
+            if (isNaN(ashMax)) ashMax = 20;
+            if (isNaN(sulfurMin)) sulfurMin = 0;
+            if (isNaN(sulfurMax)) sulfurMax = 5;
+            if (isNaN(volMin)) volMin = 0;
+            if (isNaN(volMax)) volMax = 50;
+            if (isNaN(glueMin)) glueMin = 0;
+            if (isNaN(glueMax)) glueMax = 120;
+
+            let swapped = false;
+            let swapMessages = [];
+            if (ashMin > ashMax) { let t=ashMin; ashMin=ashMax; ashMax=t; swapMessages.push(`灰分: ${ashMin.toFixed(2)} ~ ${ashMax.toFixed(2)}`); swapped=true; }
+            if (sulfurMin > sulfurMax) { let t=sulfurMin; sulfurMin=sulfurMax; sulfurMax=t; swapMessages.push(`硫分: ${sulfurMin.toFixed(2)} ~ ${sulfurMax.toFixed(2)}`); swapped=true; }
+            if (volMin > volMax) { let t=volMin; volMin=volMax; volMax=t; swapMessages.push(`挥发分: ${volMin.toFixed(2)} ~ ${volMax.toFixed(2)}`); swapped=true; }
+            if (glueMin > glueMax) { let t=glueMin; glueMin=glueMax; glueMax=t; swapMessages.push(`粘结: ${glueMin.toFixed(2)} ~ ${glueMax.toFixed(2)}`); swapped=true; }
+
+            if (swapped) {
+                const msg = "以下目标范围下限大于上限，已自动交换为：\n" + swapMessages.join("\n") + "\n\n是否确认应用此范围？";
+                if (!confirm(msg)) return;
+                // 更新输入框显示交换后的值
+                if (ashMinInput) { ashMinInput.value = ashMin; ashMaxInput.value = ashMax; }
+                if (sulfurMinInput) { sulfurMinInput.value = sulfurMin; sulfurMaxInput.value = sulfurMax; }
+                if (volMinInput) { volMinInput.value = volMin; volMaxInput.value = volMax; }
+                if (glueMinInput) { glueMinInput.value = glueMin; glueMaxInput.value = glueMax; }
+            }
+
+            // 应用目标范围
+            fetchTargetBoundsFromInputs(false); // false 会再次检查交换并弹窗（但我们已经处理过了，不过无妨）
+            refreshAndNotify('✅ 目标范围已应用，计算结果已更新', true);
         });
+    }
+
+    function checkTargetCompleteness() {
+        const missing = [];
+        const mapping = [
+            { id: 'target_ash_min', name: '灰分的下限' },
+            { id: 'target_ash_max', name: '灰分的上限' },
+            { id: 'target_sulfur_min', name: '硫分的下限' },
+            { id: 'target_sulfur_max', name: '硫分的上限' },
+            { id: 'target_volatile_min', name: '挥发分的下限' },
+            { id: 'target_volatile_max', name: '挥发分的上限' },
+            { id: 'target_glue_min', name: '粘结的下限' },
+            { id: 'target_glue_max', name: '粘结的上限' }
+        ];
+        for (let item of mapping) {
+            const input = document.getElementById(item.id);
+            if (!input) continue;
+            const val = input.value;
+            if (val === "" || isNaN(parseFloat(val))) {
+                missing.push(item.name);
+            }
+        }
+        return missing;
     }
 
     function init() {
@@ -718,8 +819,8 @@
         renderTargetInputs();
         renderTable();
         bindEvents();
-        fetchTargetBoundsFromInputs();
-        const avg = calculateWeightedAverage();
+        fetchTargetBoundsFromInputs(true);
+        const avg = calculateHybridMetrics();
         updateResultUI(avg);
         updateTotalRatioDisplay();
     }
