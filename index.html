@@ -431,7 +431,8 @@
                 if (coals.length === 1) { alert("至少保留一个煤种"); return; }
                 coals.splice(idx, 1);
                 renderTable();
-                refreshAndNotify('已删除煤种，计算已更新', false);
+                updateTotalRatioDisplay();
+                alert("已删除煤种，请点击【确认指标和配比】按钮更新计算结果。");
             });
             delCell.appendChild(delBtn);
         });
@@ -707,7 +708,8 @@
             ratio: ratio
         });
         renderTable();
-        refreshAndNotify('✅ 已添加新煤种，计算已更新', true);
+        updateTotalRatioDisplay();
+        alert("已添加新煤种，请点击【确认指标和配比】按钮更新计算结果。");
     }
 
     function bindEvents() {
@@ -775,10 +777,8 @@
                 if (glueMinInput) { glueMinInput.value = glueMin; glueMaxInput.value = glueMax; }
             }
 
-            // 应用目标范围并弹出成功提示（skipConfirm = false）
-            fetchTargetBoundsFromInputs(false); // 再次读取（会同步输入框值到 targetBounds，同时若有颠倒也会弹窗，但我们已经处理过，不会有重复颠倒，silent=false 会再弹一次，为了避免重复，这里可以改为 silent=true。但为保险，直接调用 refreshAndNotify 即可）
-            // 注意：fetchTargetBoundsFromInputs(false) 可能会因为之前已经交换过而再次弹窗（不会，因为输入框已经更新为正确顺序，不会再触发交换提示）
-            // 我们直接调用 refreshAndNotify 并传递成功消息
+            // 应用目标范围并弹出成功提示
+            fetchTargetBoundsFromInputs(false);
             refreshAndNotify('✅ 目标范围已应用，计算结果已更新', false);
         });
     }
