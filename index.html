@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>配煤计算器</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+    <div class="card">
+        <div class="card-header">
+            <div class="title-main">
+                <span class="title-icon">⚗️</span> 混合煤实际指标
+            </div>
+        </div>
+        <div class="metrics-list" id="metricsList"></div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="title-main">
+                <span class="title-icon">🪨</span> 煤种指标 & 配比
+            </div>
+            <div class="title-sub">左右滑动 · 自由修改</div>
+        </div>
+        <div class="table-wrapper">
+            <table class="coal-table" id="coalTable">
+                <thead>
+                    <tr><th>煤种名称</th><th>煤价(¥/t)</th><th>灰分 A%</th><th>硫分 S%</th><th>挥发分 V%</th><th>粘结 G</th><th>配比(成)</th><th>操作</th></tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+        <div class="btn-center">
+            <button class="btn-unified btn-green" id="addCoalBtn">+ 添加新煤种</button>
+        </div>
+        <div class="btn-center">
+            <button class="btn-unified" id="confirmCoalBtn">✓ 确认指标和配比</button>
+        </div>
+        <div class="total-summary" id="totalRatioInfo">配比总和: 0.00 成 (仅供查看)</div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="title-main">
+                <span class="title-icon">🎯</span> 钢厂目标范围
+            </div>
+            <div class="title-sub">自由修改</div>
+        </div>
+        <div class="target-row" id="targetRangeContainer"></div>
+        <div class="btn-center">
+            <button class="btn-unified" id="applyTargetBtn">✓ 确认目标范围</button>
+        </div>
+    </div>
+    <div class="footer">✅ 修改后请点击对应确认按钮 | 混合指标计算方式：按配比(成)*0.1加权求和后，除以煤种数量</div>
+</div>
+
+<script src="js/main.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/validation.js"></script>
+<script src="js/storage.js"></script>
+<script>init();</script>
+</body>
+</html>
