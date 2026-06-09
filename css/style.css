@@ -178,6 +178,12 @@ body {
 .btn-green:active {
     background: #1e7a3b;
 }
+.btn-optimize {
+    background: #6c5ce7;
+}
+.btn-optimize:active {
+    background: #5a4bd1;
+}
 .btn-center {
     text-align: center;
     margin-top: 18px;

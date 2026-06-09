@@ -68,7 +68,7 @@ function bindEvents() {
             '✅ 指标和配比已确认，计算结果已更新',
             () => {
                 syncCoalsFromTable();
-                refreshAndNotify('', true);
+                return refreshAndNotify('', true);
             }
         );
     });
@@ -128,6 +128,8 @@ function bindEvents() {
         fetchTargetBoundsFromInputs(false);
         refreshAndNotify('✅ 目标范围已应用，计算结果已更新', false);
     });
+
+    document.getElementById('optimizeBtn').addEventListener('click', handleOptimize);
 }
 
 function init() {
@@ -139,6 +141,24 @@ function init() {
     const avg = calculateHybridMetrics();
     updateResultUI(avg);
     updateTotalRatioDisplay();
+}
+
+function handleOptimize() {
+    // 同步表格数据到 coals 数组
+    syncCoalsFromTable();
+    // 同步目标范围到 targetBounds
+    fetchTargetBoundsFromInputs(true);
+
+    if (coals.length === 0) {
+        alert("请先添加煤种，至少需要1种煤才能进行优化");
+        return;
+    }
+
+    // 调用优化算法
+    var result = optimizeBlending(coals, targetBounds);
+
+    // 渲染优化结果
+    renderOptimizeResult(result);
 }
 
 // init() 由 index.html 在所有脚本加载完成后调用

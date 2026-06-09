@@ -24,7 +24,7 @@ _SCRIPT_CACHE = None
 _NODE_PATH = os.path.expandvars(r'D:\SLDownload\Nodejs\node.exe')
 
 # JS 文件加载顺序（依赖顺序：main 先定义全局变量和核心函数）
-_JS_FILES = ['main.js', 'ui.js', 'validation.js', 'storage.js']
+_JS_FILES = ['main.js', 'ui.js', 'validation.js', 'storage.js', 'optimizer.js']
 
 
 def _get_script():

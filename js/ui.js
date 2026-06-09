@@ -158,10 +158,20 @@ function fetchTargetBoundsFromInputs(silent = true) {
 
 function refreshAndNotify(message, skipConfirm = false) {
     fetchTargetBoundsFromInputs(true);
+
+    // 检查总配比是否超过十成
+    const totalRatio = coals.reduce((sum, c) => sum + (c.ratio > 0 ? c.ratio : 0), 0);
+    if (totalRatio > 10.005) {
+        updateTotalRatioDisplay();
+        alert(`警告！当前总配比${totalRatio.toFixed(2)}成，超过十成，请重新配比`);
+        return false;
+    }
+
     const avg = calculateHybridMetrics();
     updateResultUI(avg);
     updateTotalRatioDisplay();
     if (!skipConfirm) alert(message);
+    return true;
 }
 
 function renderTargetInputs() {
@@ -262,4 +272,111 @@ function addCoalManually() {
     renderTable();
     updateTotalRatioDisplay();
     alert("已添加新煤种，请点击【确认指标和配比】按钮更新计算结果。");
+}
+
+/**
+ * 渲染配比优化建议结果
+ * @param {Object} result - optimizeBlending() 的返回值
+ */
+function renderOptimizeResult(result) {
+    var container = document.getElementById('optimizeResultContainer');
+    if (!container) return;
+
+    container.style.display = 'block';
+
+    if (!result.success) {
+        container.innerHTML = '<div class="card" style="border-left: 4px solid #e74c3c;">' +
+            '<div class="card-header"><div class="title-main">' +
+            '<span class="title-icon">⚠️</span> 优化失败</div></div>' +
+            '<div class="metric-row"><div class="metric-name" style="color:#e74c3c;">' +
+            result.message + '</div></div></div>';
+        return;
+    }
+
+    // ── 构建结果 HTML ──
+    var coals = window.coals || [];
+    var html = '<div class="card" style="border-left: 4px solid #27ae60;">' +
+        '<div class="card-header"><div class="title-main">' +
+        '<span class="title-icon">✅</span> 优化建议 · 综合煤价 ' +
+        '<strong>' + result.cost.toFixed(2) + ' ¥/t</strong></div>' +
+        '<div class="title-sub">总配比 ' + result.totalRatio.toFixed(1) + ' 成</div></div>';
+
+    // 建议配比列表
+    html += '<div style="padding: 8px 16px; font-size: 13px;">';
+    html += '<table style="width:100%; border-collapse:collapse;">';
+    html += '<tr style="border-bottom:1px solid #ddd; color:#666;">' +
+        '<th style="text-align:left; padding:4px;">煤种</th>' +
+        '<th style="text-align:right; padding:4px;">建议配比（成）</th></tr>';
+
+    for (var i = 0; i < coals.length; i++) {
+        var r = result.ratios[i];
+        var highlight = r > 0 ? 'color:#27ae60; font-weight:bold;' : 'color:#999;';
+        html += '<tr style="border-bottom:1px solid #f0f0f0;">' +
+            '<td style="padding:4px;">' + (coals[i].name || '煤种' + (i+1)) + '</td>' +
+            '<td style="text-align:right; padding:4px; ' + highlight + '">' +
+            r.toFixed(1) + '</td></tr>';
+    }
+    html += '</table></div>';
+
+    // 预期混合指标
+    if (result.metrics) {
+        html += '<div style="padding: 8px 16px; border-top: 1px solid #eee;">';
+        html += '<div style="font-weight:bold; margin-bottom:4px;">📊 预期混合指标</div>';
+        var metricItems = [
+            { label: '灰分 A%', key: 'ash', unit: '%', precision: 2 },
+            { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 3 },
+            { label: '挥发分 V%', key: 'volatile', unit: '%', precision: 2 },
+            { label: '粘结 G', key: 'glue', unit: '', precision: 1 }
+        ];
+        for (var j = 0; j < metricItems.length; j++) {
+            var item = metricItems[j];
+            var val = result.metrics[item.key];
+            var isPass = result.status ? result.status[item.key] : false;
+            var statusText = isPass ? '✅ 达标' : '⚠️ 超标';
+            var statusColor = isPass ? '#27ae60' : '#e74c3c';
+            html += '<div style="display:flex; justify-content:space-between; padding:2px 0;">' +
+                '<span>' + item.label + '</span>' +
+                '<span>' + val.toFixed(item.precision) + ' ' + item.unit + '</span>' +
+                '<span style="color:' + statusColor + '; font-size:12px;">' + statusText + '</span>' +
+                '</div>';
+        }
+        html += '</div>';
+    }
+
+    // 操作按钮
+    html += '<div class="btn-center" style="padding: 12px 0;">' +
+        '<button class="btn-unified btn-green" id="applyOptimizeBtn">' +
+        '📋 应用建议配比</button></div>';
+
+    html += '</div>';  // end card
+
+    container.innerHTML = html;
+
+    // 绑定"应用建议"按钮事件
+    var applyBtn = document.getElementById('applyOptimizeBtn');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function() {
+            applyOptimizeRatios(result.ratios);
+        });
+    }
+}
+
+/**
+ * 将优化建议的配比填入表格
+ * @param {number[]} ratios - 建议配比数组
+ */
+function applyOptimizeRatios(ratios) {
+    var rows = document.querySelectorAll('#tableBody tr');
+    for (var i = 0; i < rows.length && i < ratios.length; i++) {
+        var ratioInput = rows[i].cells[6].querySelector('input');
+        if (ratioInput) {
+            ratioInput.value = ratios[i].toFixed(1);
+            // 同步到 coals 数组
+            if (i < coals.length) {
+                coals[i].ratio = ratios[i];
+            }
+        }
+    }
+    updateTotalRatioDisplay();
+    alert('已应用优化建议配比，请点击【确认指标和配比】按钮查看计算结果。');
 }
