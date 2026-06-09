@@ -348,12 +348,12 @@ class TestUpdateTotalRatioDisplay(unittest.TestCase):
         self.assertEqual(results[0], 3.8)
         self.assertEqual(results[1], "3.80")
 
-    def test_negative_ratio_not_counted_in_total__现状(self):
-        """现状：c.ratio > 0 判断 → 负配比被排除在总和之外
+    def test_negative_ratio_not_counted_in_total(self):
+        """c.ratio > 0 判断 → 负配比被排除在总和之外
 
         注意：负配比不加入配比总和显示，但在 calculateHybridMetrics 中
         仍会参与加权计算（因为那里用的是 c.ratio || 0）。
-        两处对负值的处理不一致 —— 此为现状。
+        两处对负值的处理不一致。
         """
         results = run_js("""
             coals = [{name:"A", ratio:-3}, {name:"B", ratio:5}];
@@ -369,8 +369,8 @@ class TestUpdateTotalRatioDisplay(unittest.TestCase):
                      {name:"B", price:0, ash:0, sulfur:0, volatile:0, glue:0, ratio:5}];
             report(calculateHybridMetrics().ash);
         """)
-        # A w=-0.3, B w=0.5, ash=(-30+0)/2=-15
-        self.assertAlmostEqual(results2[0], -15)
+        # A w=-0.3, B w=0.5, ash=100*(-0.3)+0*0.5=-30.0（分母固定 1.0）
+        self.assertAlmostEqual(results2[0], -30.0)
 
 
 if __name__ == '__main__':

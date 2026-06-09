@@ -43,13 +43,13 @@ function calculateHybridMetrics() {
         sumPrice += (c.price || 0) * weight;
     }
 
-    const denominator = coalCount;
+    // 分母固定为 1.0（隐含十成满配，不足十成的剩余配比由无属性煤种填补）
     return {
-        ash: sumAsh / denominator,
-        sulfur: sumSulfur / denominator,
-        volatile: sumVolatile / denominator,
-        glue: sumGlue / denominator,
-        price: sumPrice / denominator
+        ash: sumAsh,
+        sulfur: sumSulfur,
+        volatile: sumVolatile,
+        glue: sumGlue,
+        price: sumPrice
     };
 }
 

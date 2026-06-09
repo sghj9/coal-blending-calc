@@ -70,7 +70,11 @@ function renderTable() {
 
 function updateTotalRatioDisplay() {
     let total = coals.reduce((sum, c) => sum + (c.ratio > 0 ? c.ratio : 0), 0);
-    document.getElementById('totalRatioInfo').innerHTML = `📐 配比总和: ${total.toFixed(2)} 成 (仅供查看)`;
+    if (total > 10.005) {
+        document.getElementById('totalRatioInfo').innerHTML = `⚠️ 当前总配比为 ${total.toFixed(2)} 成（超出十成，请注意）`;
+    } else {
+        document.getElementById('totalRatioInfo').innerHTML = `📐 当前总配比为 ${total.toFixed(2)} 成`;
+    }
 }
 
 function updateResultUI(avg) {

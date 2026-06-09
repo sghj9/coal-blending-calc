@@ -1,7 +1,7 @@
 """特征测试：核心计算逻辑 — calculateHybridMetrics()
 
 锁住当前混合煤指标加权计算的全部行为。
-关键现状：分母为「煤种数量」而非「总权重」。
+关键现状：分母固定为 1.0（隐含十成满配），不再除以煤种数量。
 """
 
 import unittest
@@ -31,14 +31,14 @@ class TestCalculateHybridMetrics(unittest.TestCase):
     # ══════════════════════════════════════════════
 
     def test_basic_two_coals_matches_spec_example(self):
-        """现状：规格文档示例 — 两种煤，分母=煤种数量(2)"""
+        """规格文档示例 — 两种煤，分母固定 1.0（隐含十成满配）"""
         avg = self._avg("""
             [{name:"A", price:0, ash:10, sulfur:0, volatile:0, glue:0, ratio:2},
              {name:"B", price:0, ash:20, sulfur:0, volatile:0, glue:0, ratio:3}]
         """)
         # 权重A=2*0.1=0.2, B=3*0.1=0.3
-        # 加权和=10*0.2+20*0.3=2+6=8, 混合灰分=8/2=4.0
-        self.assertAlmostEqual(avg["ash"], 4.0)
+        # 混合灰分=10*0.2+20*0.3=2+6=8.0（分母=1.0，剩余5成由无属性煤种填补）
+        self.assertAlmostEqual(avg["ash"], 8.0)
         self.assertEqual(avg["sulfur"], 0.0)
 
     def test_single_coal_weighted_value_divided_by_one(self):
@@ -63,23 +63,23 @@ class TestCalculateHybridMetrics(unittest.TestCase):
         self.assertAlmostEqual(avg["ash"], 100.0)
 
     def test_three_coals_with_mixed_ratios(self):
-        """现状：三种煤不同配比的混合计算"""
+        """三种煤不同配比的混合计算（分母=1.0）"""
         avg = self._avg("""
             [{name:"A", price:100, ash:10, sulfur:1, volatile:30, glue:90, ratio:4},
              {name:"B", price:200, ash:20, sulfur:2, volatile:20, glue:80, ratio:6},
              {name:"C", price:300, ash:30, sulfur:0, volatile:25, glue:70, ratio:0}]
         """)
         # A w=0.4, B w=0.6, C w=0
-        # ash: (10*0.4+20*0.6+30*0)/3 = (4+12+0)/3 = 16/3 ≈ 5.333...
-        # sulfur: (1*0.4+2*0.6+0*0)/3 = (0.4+1.2)/3 = 1.6/3 ≈ 0.5333...
-        # volatile: (30*0.4+20*0.6+25*0)/3 = (12+12)/3 = 8.0
-        # glue: (90*0.4+80*0.6+70*0)/3 = (36+48)/3 = 28.0
-        # price: (100*0.4+200*0.6+300*0)/3 = (40+120)/3 = 160/3 ≈ 53.333...
-        self.assertAlmostEqual(avg["ash"], 5.333333, places=5)
-        self.assertAlmostEqual(avg["sulfur"], 0.533333, places=5)
-        self.assertAlmostEqual(avg["volatile"], 8.0)
-        self.assertAlmostEqual(avg["glue"], 28.0)
-        self.assertAlmostEqual(avg["price"], 53.333333, places=5)
+        # ash: 10*0.4+20*0.6+30*0 = 4+12+0 = 16.0
+        # sulfur: 1*0.4+2*0.6+0*0 = 0.4+1.2 = 1.6
+        # volatile: 30*0.4+20*0.6+25*0 = 12+12 = 24.0
+        # glue: 90*0.4+80*0.6+70*0 = 36+48 = 84.0
+        # price: 100*0.4+200*0.6+300*0 = 40+120 = 160.0
+        self.assertAlmostEqual(avg["ash"], 16.0)
+        self.assertAlmostEqual(avg["sulfur"], 1.6)
+        self.assertAlmostEqual(avg["volatile"], 24.0)
+        self.assertAlmostEqual(avg["glue"], 84.0)
+        self.assertAlmostEqual(avg["price"], 160.0)
 
     def test_return_structure_always_five_keys(self):
         """现状：返回对象固定包含 ash/sulfur/volatile/glue/price 五个键"""
@@ -89,25 +89,25 @@ class TestCalculateHybridMetrics(unittest.TestCase):
         self.assertEqual(set(avg.keys()), {"ash", "sulfur", "volatile", "glue", "price"})
 
     def test_default_eight_coals_exact_result(self):
-        """现状：8 种默认煤种的计算结果（精确值，锁住不改）"""
+        """8 种默认煤种的计算结果（精确值，分母=1.0）"""
         avg = self._avg("getDefaultCoals()")
-        self.assertAlmostEqual(avg["ash"], 1.048125, places=6)
-        self.assertAlmostEqual(avg["sulfur"], 0.168375, places=6)
-        self.assertAlmostEqual(avg["volatile"], 3.14, places=6)
-        self.assertAlmostEqual(avg["glue"], 7.85, places=6)
-        self.assertAlmostEqual(avg["price"], 86.2875, places=6)
+        self.assertAlmostEqual(avg["ash"], 8.385, places=6)
+        self.assertAlmostEqual(avg["sulfur"], 1.347, places=6)
+        self.assertAlmostEqual(avg["volatile"], 25.12, places=6)
+        self.assertAlmostEqual(avg["glue"], 62.8, places=6)
+        self.assertAlmostEqual(avg["price"], 690.3, places=6)
 
     # ══════════════════════════════════════════════
-    # 现状：分母=煤种数量的行为特征
+    # 分母=1.0 （隐含十成满配）的行为特征
     # ══════════════════════════════════════════════
 
-    def test_denominator_is_coal_count_not_total_weight__现状(self):
-        """现状「分母=煤种数量」：两种煤总配比不同但煤种数相同→分母相同
+    def test_denominator_is_fixed_one_not_coal_count(self):
+        """分母固定为 1.0：两种煤总配比不同但指标相同 → 结果与配比成比例
 
-        若分母是总权重，两种煤配比1+1=2成（总权重0.2）与配比5+5=10成（总权重1.0）
-        结果会不同。当前实现分母=煤种数量=2，所以：
-          配比(1,1): ash=(10*0.1+20*0.1)/2=(1+2)/2=1.5
-          配比(5,5): ash=(10*0.5+20*0.5)/2=(5+10)/2=7.5
+        配比(1,1): ash=10*0.1+20*0.1=1+2=3.0
+        配比(5,5): ash=10*0.5+20*0.5=5+10=15.0
+        若分母=煤种数量，两者比例应为 1:5，即 3.0 vs 15.0
+        若分母=总权重，配比(5,5)结果=(5+10)/1.0=15.0 仍相同（总权重=1.0时）
         """
         avg1 = self._avg("""
             [{name:"A", price:0, ash:10, sulfur:0, volatile:0, glue:0, ratio:1},
@@ -117,10 +117,10 @@ class TestCalculateHybridMetrics(unittest.TestCase):
             [{name:"A", price:0, ash:10, sulfur:0, volatile:0, glue:0, ratio:5},
              {name:"B", price:0, ash:20, sulfur:0, volatile:0, glue:0, ratio:5}]
         """)
-        self.assertAlmostEqual(avg1["ash"], 1.5)
-        self.assertAlmostEqual(avg2["ash"], 7.5)
-        # 验证分母不是总权重：若分母=总权重，avg2["ash"]=(10*0.5+20*0.5)/(0.5+0.5)=15/1=15
-        self.assertNotEqual(avg2["ash"], 15.0)  # 证实分母不是总权重
+        self.assertAlmostEqual(avg1["ash"], 3.0)
+        self.assertAlmostEqual(avg2["ash"], 15.0)
+        # 验证结果与配比成比例（5倍配比 → 5倍结果）
+        self.assertAlmostEqual(avg2["ash"], avg1["ash"] * 5.0)
 
     # ══════════════════════════════════════════════
     # 空值/null/undefined 处理
@@ -206,34 +206,34 @@ class TestCalculateHybridMetrics(unittest.TestCase):
         self.assertAlmostEqual(avg["ash"], 0.01)
 
     def test_price_participates_in_same_weighted_average(self):
-        """现状：煤价与其他指标使用完全相同的加权平均公式（也除以煤种数量）"""
+        """煤价与其他指标使用完全相同的加权公式（分母固定 1.0）"""
         avg = self._avg("""
             [{name:"A", price:100, ash:0, sulfur:0, volatile:0, glue:0, ratio:2},
              {name:"B", price:200, ash:0, sulfur:0, volatile:0, glue:0, ratio:4}]
         """)
-        # A w=0.2, B w=0.4, price=(100*0.2+200*0.4)/2=(20+80)/2=50
-        self.assertAlmostEqual(avg["price"], 50.0)
+        # A w=0.2, B w=0.4, price=100*0.2+200*0.4=20+80=100
+        self.assertAlmostEqual(avg["price"], 100.0)
 
-    def test_coal_with_zero_ratio_excluded_from_numerator_only(self):
-        """现状：配比=0 的煤种不计入分子（权重为0），但仍计入分母（煤种数量）
+    def test_coal_with_zero_ratio_does_not_dilute_result(self):
+        """配比=0 的煤种计不入分子（权重为0），分母固定 1.0 不会稀释结果
 
-        即「零配比煤种会稀释结果」——此为关键现状。
+        相比旧公式（分母=煤种数量），零配比煤种不再稀释混合指标。
         """
         avg_with_zero = self._avg("""
             [{name:"A", price:0, ash:10, sulfur:0, volatile:0, glue:0, ratio:5},
              {name:"B", price:0, ash:0, sulfur:0, volatile:0, glue:0, ratio:0}]
         """)
-        # A w=0.5, B w=0
-        # ash = (10*0.5 + 0*0) / 2 = 5/2 = 2.5
-        self.assertAlmostEqual(avg_with_zero["ash"], 2.5)
+        # A w=0.5, B w=0, 分母=1.0
+        # ash = 10*0.5 + 0*0 = 5.0
+        self.assertAlmostEqual(avg_with_zero["ash"], 5.0)
 
-        # 如果没有 B，结果应该是 10*0.5/1 = 5.0
+        # 如果没有 B，结果应该相同
         avg_without_zero = self._avg("""
             [{name:"A", price:0, ash:10, sulfur:0, volatile:0, glue:0, ratio:5}]
         """)
         self.assertAlmostEqual(avg_without_zero["ash"], 5.0)
-        # 5.0 ≠ 2.5 —— 零配比煤种稀释了结果
-        self.assertNotEqual(avg_with_zero["ash"], avg_without_zero["ash"])
+        # 加不加零配比煤种，结果一致
+        self.assertEqual(avg_with_zero["ash"], avg_without_zero["ash"])
 
 
 if __name__ == '__main__':

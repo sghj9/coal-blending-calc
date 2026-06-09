@@ -224,7 +224,7 @@ class TestDefaultCoalsStatusWithInitialBounds(unittest.TestCase):
     """锁住：用默认 8 种煤 + 默认目标范围 → 各指标的达标/超标状态"""
 
     def test_default_coals_against_default_targets(self):
-        """现状：默认煤种对默认目标范围的达标判定"""
+        """默认煤种对默认目标范围的达标判定（分母=1.0）"""
         results = run_js("""
             targetBounds = {
                 ash: { min: 0, max: 11.0 },
@@ -243,15 +243,13 @@ class TestDefaultCoalsStatusWithInitialBounds(unittest.TestCase):
             });
         """)
         status = results[0]
-        # avg: ash=1.048, sulfur=0.168, volatile=3.14, glue=7.85
-        self.assertTrue(status["ash"], "默认灰分 1.048 应在 [0, 11] 内 → 达标")
-        self.assertTrue(status["sulfur"], "默认硫分 0.168 应在 [0, 1] 内 → 达标")
-        # 现状：volatile=3.14 < 28 → 超标
+        # avg: ash=8.385, sulfur=1.347, volatile=25.12, glue=62.8
+        self.assertTrue(status["ash"], "默认灰分 8.385 应在 [0, 11] 内 → 达标")
+        self.assertFalse(status["sulfur"], "默认硫分 1.347 超出上限 1.0 → 超标")
         self.assertFalse(status["volatile"],
-            "现状：默认挥发分 3.14 远低于下限 28 → 超标（因分母=煤种数量导致稀释）")
-        # 现状：glue=7.85 < 75 → 超标
+            "默认挥发分 25.12 低于下限 28 → 超标（总配比 8 成，不足十成）")
         self.assertFalse(status["glue"],
-            "现状：默认粘结 7.85 远低于下限 75 → 超标（因分母=煤种数量导致稀释）")
+            "默认粘结 62.8 低于下限 75 → 超标（总配比 8 成，不足十成）")
 
 
 if __name__ == '__main__':
