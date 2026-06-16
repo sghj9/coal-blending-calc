@@ -43,7 +43,7 @@ function calculateHybridMetrics() {
         sumPrice += (c.price || 0) * weight;
     }
 
-    // 分母固定为 1.0（隐含十成满配，不足十成的剩余配比由无属性煤种填补）
+    // 分母固定为 1.0（隐含十成满配）
     return {
         ash: sumAsh,
         sulfur: sumSulfur,

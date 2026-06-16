@@ -1,4 +1,18 @@
+# 系统文件
 .DS_Store
-node_modules/
+Thumbs.db
 *.log
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo

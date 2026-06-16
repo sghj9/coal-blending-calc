@@ -1,0 +1,8 @@
+[project]
+name = "coal-blending-calc"
+version = "1.0.0"
+description = "配煤计算器"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+test = ["pytest==9.0.3"]
