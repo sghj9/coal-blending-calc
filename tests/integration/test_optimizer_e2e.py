@@ -134,4 +134,4 @@ class TestOptimizerE2E:
         assert r["manualFeasible"] is False, "默认手动配比应该不达标"
         assert r["optVolatile"] >= 28 - 1e-6, f"挥发分 {r['optVolatile']} ≥ 28"
         assert r["optAsh"] <= 11.0 + 1e-6, f"灰分 {r['optAsh']} ≤ 11.0"
-        assert 500 <= r["optCost"] <= 1200, f"优化成本 {r['optCost']} 应在合理范围"
+        assert 300 <= r["optCost"] <= 1200, f"优化成本 {r['optCost']} 应在合理范围"

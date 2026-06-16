@@ -219,12 +219,12 @@ class TestOptimizeBlending:
             assert isinstance(result["cost"], (int, float))
 
     def test_optimized_cost_is_reasonable(self):
-        """优化成本应在合理范围（500~1200）"""
+        """优化成本应在合理范围（仅灰分/挥发分约束后可更低）"""
         coals_js = "getDefaultCoals()"
         result = _call_optimize(coals_js)
         assert result["success"] is True
-        assert 500 <= result["cost"] <= 1200, (
-            f"优化成本 {result['cost']} 应在合理范围 [500, 1200]"
+        assert 300 <= result["cost"] <= 1200, (
+            f"优化成本 {result['cost']} 应在合理范围 [300, 1200]"
         )
 
     # ── MILP 专项测试 ──

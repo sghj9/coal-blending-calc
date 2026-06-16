@@ -1,11 +1,11 @@
 /**
- * 配比优化求解器 — 两阶段单纯形法 + 配比优化接口
+ * 配比优化求解器 — 两阶段单纯形法 + Branch-and-Bound MILP + 配比优化接口
  *
- * 将配比优化建模为线性规划（LP）：
- *   min Σ(p_i × 0.1 × r_i)      (最小化综合煤价)
- *   s.t. 指标下限 ≤ Σ(指标_i × 0.1 × r_i) ≤ 指标上限
- *        Σ r_i ≤ 10              (总配比不超过十成)
- *        r_i ≥ 0
+ * 将配比优化建模为混合整数线性规划（MILP）：
+ *   min Σ(p_i × 0.01 × y_i)     (最小化综合煤价, y_i = 10 × r_i)
+ *   s.t. 指标下限 ≤ Σ(指标_i × 0.01 × y_i) ≤ 指标上限
+ *        Σ y_i ≤ 100              (总配比不超过十成)
+ *        y_i ∈ Z⁺ (0~100 整数)
  */
 
 // ═══════════════════════════════════════════════════════════
@@ -312,6 +312,100 @@ function simplex(c, A, b) {
 
 
 // ═══════════════════════════════════════════════════════════
+// 混合整数线性规划（MILP）— Branch-and-Bound 框架
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * 分支定界法求解 MILP：前 nVars 个变量为整数约束
+ *
+ * 每个节点重新构建 A、b 后调用 simplex() 求解 LP 松弛。
+ * 小规模问题（n ≤ 20）下，simplex 单次求解 < 1ms，B&B 总开销 < 50ms。
+ *
+ * @param {number[]} c - 目标函数系数
+ * @param {number[][]} A - 约束矩阵（每行 ≤ 约束）
+ * @param {number[]} b - 约束右端常数
+ * @param {number} nVars - 需要整数约束的变量数（对应 y_0..y_{nVars-1}）
+ * @returns {{success: boolean, x: number[]|null, obj: number|null, message: string}}
+ */
+function _milpSolve(c, A, b, nVars) {
+    var EPS = 1e-10;
+    var maxNodes = 500;
+    var nodeCount = 0;
+
+    var bestObj = Infinity;
+    var bestX = null;
+
+    // 将初始 A、b 被复用前的引用无关紧要（每个节点 clone 自己的约束集）
+    // DFS 栈：{A, b}
+    var stack = [{ A: A, b: b }];
+
+    while (stack.length > 0 && nodeCount < maxNodes) {
+        var node = stack.pop();
+        nodeCount++;
+
+        // 1. 求解 LP 松弛
+        var sol = simplex(c, node.A, node.b);
+        if (!sol.success) continue;              // 剪枝：不可行
+
+        if (sol.obj >= bestObj - EPS) continue;   // 剪枝：下界 ≥ 已找到的最优
+
+        // 2. 检查整数性（前 nVars 个变量）
+        var fracIdx = -1;
+        for (var i = 0; i < nVars; i++) {
+            var xi = sol.x[i] || 0;
+            var nearestInt = Math.round(xi);
+            if (Math.abs(xi - nearestInt) > 1e-6) {
+                fracIdx = i;
+                break;
+            }
+        }
+
+        if (fracIdx === -1) {
+            // 全部整数 → 记录为当前最优
+            for (var i = 0; i < nVars; i++) {
+                sol.x[i] = Math.round(sol.x[i] || 0);
+            }
+            bestObj = sol.obj;
+            bestX = sol.x;
+            continue;
+        }
+
+        // 3. 分支
+        var val = sol.x[fracIdx];
+        var floorVal = Math.floor(val);
+        var ceilVal = Math.ceil(val);
+
+        // 分支 A: y_k ≥ ceil → -y_k ≤ -ceil（先入栈，后处理）
+        var rowA = [];
+        for (var j = 0; j < nVars; j++) rowA.push(0);
+        rowA[fracIdx] = -1;
+        stack.push({
+            A: node.A.concat([rowA]),
+            b: node.b.concat([-ceilVal])
+        });
+
+        // 分支 B: y_k ≤ floor（后入栈，先处理 → floor 优先搜索）
+        var rowB = [];
+        for (var j = 0; j < nVars; j++) rowB.push(0);
+        rowB[fracIdx] = 1;
+        stack.push({
+            A: node.A.concat([rowB]),
+            b: node.b.concat([floorVal])
+        });
+    }
+
+    if (bestX !== null) {
+        return { success: true, x: bestX, obj: bestObj, message: "MILP优化成功" };
+    }
+    if (nodeCount >= maxNodes) {
+        return { success: false, x: null, obj: null,
+            message: "优化超时：分支节点数超过上限，请减少煤种数量或放宽约束" };
+    }
+    return { success: false, x: null, obj: null, message: "无可行整数解" };
+}
+
+
+// ═══════════════════════════════════════════════════════════
 // 配比优化接口
 // ═══════════════════════════════════════════════════════════
 
@@ -349,9 +443,8 @@ function optimizeBlending(coals, bounds) {
     var bVolatile = bounds.volatile || { min: 0, max: 50 };
     var bGlue = bounds.glue || { min: 0, max: 120 };
 
-    // ── 构建线性规划 ──
-    // 决策变量：r_i（每种煤的配比，单位：成）
-    // 目标函数系数 = price_i × 0.1（因为权重 = 配比 × 0.1）
+    // ── 构建 MILP（y_i = 10 × r_i，y_i 为整数）──
+    // 所有系数 × 0.01（因为 r_i = y_i/10，权重 = y_i × 0.01）
 
     var c = [];        // 目标函数系数
     var A = [];        // 约束矩阵
@@ -359,52 +452,50 @@ function optimizeBlending(coals, bounds) {
     var EPS = 1e-12;
 
     for (var i = 0; i < n; i++) {
-        c.push((coals[i].price || 0) * 0.1);
+        c.push((coals[i].price || 0) * 0.01);
     }
 
-    // 辅助：为指标构建约束行（上界 ≤ max，下界 ≥ min → -Σ ≤ -min）
-    var metrics = [
-        { key: "ash", label: "灰分", min: bAsh.min, max: bAsh.max },
-        { key: "sulfur", label: "硫分", min: bSulfur.min, max: bSulfur.max },
-        { key: "volatile", label: "挥发分", min: bVolatile.min, max: bVolatile.max },
-        { key: "glue", label: "粘结", min: bGlue.min, max: bGlue.max }
+    // 仅灰分和挥发分参与优化约束（洗煤后硫分、粘结不可预判）
+    var metricDefs = [
+        { key: "ash", min: bAsh.min, max: bAsh.max },
+        { key: "volatile", min: bVolatile.min, max: bVolatile.max }
     ];
 
-    for (var k = 0; k < metrics.length; k++) {
-        var mk = metrics[k];
+    for (var k = 0; k < metricDefs.length; k++) {
+        var mk = metricDefs[k];
 
-        // 上界约束：Σ(val_i × 0.1 × r_i) ≤ max
+        // 上界约束：Σ(val_i × 0.01 × y_i) ≤ max
         if (mk.max < Infinity) {
             var rowUpper = [];
             for (var i = 0; i < n; i++) {
-                rowUpper.push((coals[i][mk.key] || 0) * 0.1);
+                rowUpper.push((coals[i][mk.key] || 0) * 0.01);
             }
             A.push(rowUpper);
             bVec.push(mk.max);
         }
 
-        // 下界约束：Σ(val_i × 0.1 × r_i) ≥ min
-        // → -Σ(val_i × 0.1 × r_i) ≤ -min
+        // 下界约束：Σ(val_i × 0.01 × y_i) ≥ min
+        // → -Σ(val_i × 0.01 × y_i) ≤ -min
         if (mk.min > EPS) {
             var rowLower = [];
             for (var i = 0; i < n; i++) {
-                rowLower.push(-(coals[i][mk.key] || 0) * 0.1);
+                rowLower.push(-(coals[i][mk.key] || 0) * 0.01);
             }
             A.push(rowLower);
             bVec.push(-mk.min);
         }
     }
 
-    // 总配比约束：Σ r_i ≤ 10
+    // 总配比约束：Σ y_i ≤ 100（即 Σ r_i ≤ 10）
     var rowTotal = [];
     for (var i = 0; i < n; i++) {
         rowTotal.push(1);
     }
     A.push(rowTotal);
-    bVec.push(10);
+    bVec.push(100);
 
-    // ── 调用单纯形法求解 ──
-    var result = simplex(c, A, bVec);
+    // ── 调用 MILP 求解（前 n 个变量为整数）──
+    var result = _milpSolve(c, A, bVec, n);
 
     if (!result.success) {
         return {
@@ -414,28 +505,23 @@ function optimizeBlending(coals, bounds) {
         };
     }
 
-    // ── 后处理：整理配比（保留全精度用于计算，另存显示用配比） ──
-    var fullX = result.x;
+    // ── y_i → r_i（/10，天然 1 位小数，无需舍入）──
     var ratios = [];
     var totalRatio = 0;
     for (var i = 0; i < n; i++) {
-        var r = fullX[i];
-        // 将极小值（浮点噪声）截断为 0
-        if (r < 1e-8) r = 0;
-        // 保留一位小数用于展示
-        var displayR = Math.round(r * 10) / 10;
-        ratios.push(displayR);
-        totalRatio += displayR;
+        var yi = result.x[i] || 0;
+        var ri = yi / 10;
+        ratios.push(ri);
+        totalRatio += ri;
     }
     totalRatio = Math.round(totalRatio * 10) / 10;
 
-    // ── 计算混合指标（使用全精度配比，确保约束满足） ──
+    // ── 计算混合指标（使用 MILP 整数解配比，WYSIWYG）──
     var sumAsh = 0, sumSulfur = 0, sumVolatile = 0, sumGlue = 0, sumPrice = 0;
 
     for (var i = 0; i < n; i++) {
-        // 使用全精度配比（fullX），而非四舍五入后的 ratios
-        var rawR = fullX[i] < 1e-8 ? 0 : fullX[i];
-        var weight = rawR * 0.1;
+        var r = ratios[i];
+        var weight = r * 0.1;
         sumAsh += (coals[i].ash || 0) * weight;
         sumSulfur += (coals[i].sulfur || 0) * weight;
         sumVolatile += (coals[i].volatile || 0) * weight;
@@ -455,9 +541,9 @@ function optimizeBlending(coals, bounds) {
     // ── 达标判定 ──
     var status = {
         ash: sumAsh >= bAsh.min - EPS && sumAsh <= bAsh.max + EPS,
-        sulfur: sumSulfur >= bSulfur.min - EPS && sumSulfur <= bSulfur.max + EPS,
+        sulfur: null,   // 洗煤后硫分不可预判，仅作参考值
         volatile: sumVolatile >= bVolatile.min - EPS && sumVolatile <= bVolatile.max + EPS,
-        glue: sumGlue >= bGlue.min - EPS && sumGlue <= bGlue.max + EPS
+        glue: null      // 洗煤后粘结不可预判，仅作参考值
     };
 
     return {
