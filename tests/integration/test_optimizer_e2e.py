@@ -45,8 +45,8 @@ class TestOptimizerE2E:
         for i, r in enumerate(result["ratios"]):
             assert r >= -1e-10, f"煤种 {i} 配比 {r} 不应为负数"
 
-    def test_milp_solution_satisfies_all_constraints(self):
-        """MILP 解所有指标满足约束，status 均为 true"""
+    def test_milp_solution_satisfies_ash_volatile_constraints(self):
+        """MILP 解满足灰分和挥发分约束，硫分/粘结 status 为 null（参考值）"""
         coals_js = "getDefaultCoals()"
         bounds_js = """
             {ash: {min: 0, max: 11.0}, sulfur: {min: 0, max: 1.0},
@@ -57,16 +57,15 @@ class TestOptimizerE2E:
         m = result["metrics"]
         EPS = 1e-6
         assert 0 - EPS <= m["ash"] <= 11.0 + EPS, f"灰分 {m['ash']} 应在 [0, 11.0]"
-        assert 0 - EPS <= m["sulfur"] <= 1.0 + EPS, f"硫分 {m['sulfur']} 应在 [0, 1.0]"
         assert 28 - EPS <= m["volatile"] <= 34 + EPS, f"挥发分 {m['volatile']} 应在 [28, 34]"
-        assert 75 - EPS <= m["glue"] <= 100 + EPS, f"粘结 {m['glue']} 应在 [75, 100]"
         assert result["status"]["ash"] is True
-        assert result["status"]["sulfur"] is True
         assert result["status"]["volatile"] is True
-        assert result["status"]["glue"] is True
+        # 硫分和粘结不作为优化约束，status 为 null（参考值）
+        assert result["status"]["sulfur"] is None
+        assert result["status"]["glue"] is None
 
     def test_status_consistent_with_metrics(self):
-        """status 与 metrics 相对于 bounds 的一致性正确"""
+        """status 与 metrics 相对于 bounds 的一致性正确（仅灰分/挥发分）"""
         coals_js = "getDefaultCoals()"
         bounds_js = """
             {ash: {min: 0, max: 11.0}, sulfur: {min: 0, max: 1.0},
@@ -80,15 +79,12 @@ class TestOptimizerE2E:
         assert status["ash"] == (0 - EPS <= m["ash"] <= 11.0 + EPS), (
             f"灰分 status={status['ash']} 与 m={m['ash']} 不一致"
         )
-        assert status["sulfur"] == (0 - EPS <= m["sulfur"] <= 1.0 + EPS), (
-            f"硫分 status={status['sulfur']} 与 m={m['sulfur']} 不一致"
-        )
         assert status["volatile"] == (28 - EPS <= m["volatile"] <= 34 + EPS), (
             f"挥发分 status={status['volatile']} 与 m={m['volatile']} 不一致"
         )
-        assert status["glue"] == (75 - EPS <= m["glue"] <= 100 + EPS), (
-            f"粘结 status={status['glue']} 与 m={m['glue']} 不一致"
-        )
+        # 硫分和粘结为参考值，status 为 None
+        assert status["sulfur"] is None, f"sulfur status 应为 None，实际 {status['sulfur']}"
+        assert status["glue"] is None, f"glue status 应为 None，实际 {status['glue']}"
 
     def test_milp_ratios_consistent_with_hybrid_calculation(self):
         """MILP ratios 代入 calculateHybridMetrics → 价格/指标与 opt 输出一致"""
@@ -137,7 +133,5 @@ class TestOptimizerE2E:
         assert r["optSuccess"] is True, "MILP应找到可行解"
         assert r["manualFeasible"] is False, "默认手动配比应该不达标"
         assert r["optVolatile"] >= 28 - 1e-6, f"挥发分 {r['optVolatile']} ≥ 28"
-        assert r["optGlue"] >= 75 - 1e-6, f"粘结 {r['optGlue']} ≥ 75"
         assert r["optAsh"] <= 11.0 + 1e-6, f"灰分 {r['optAsh']} ≤ 11.0"
-        assert r["optSulfur"] <= 1.0 + 1e-6, f"硫分 {r['optSulfur']} ≤ 1.0"
         assert 500 <= r["optCost"] <= 1200, f"优化成本 {r['optCost']} 应在合理范围"
