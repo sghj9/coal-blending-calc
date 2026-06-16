@@ -126,14 +126,15 @@ class TestOptimizeBlending:
         assert result["success"] is True, f"单煤种指标在范围内，应有可行解: {result.get('message')}"
 
     def test_single_coal_out_of_bounds(self):
-        """单煤种指标超出目标范围 → 无可行解"""
+        """单煤种指标超出目标范围 → 无可行解（仅灰分/挥发分参与约束）"""
         coals_js = '[{name:"高硫煤", price:500, ash:10, sulfur:3.0, volatile:30, glue:80}]'
         bounds_js = """
             {ash: {min: 0, max: 11.0}, sulfur: {min: 0, max: 1.0},
              volatile: {min: 28, max: 34}, glue: {min: 75, max: 100}}
         """
         result = _call_optimize(coals_js, bounds_js)
-        assert result["success"] is False, "硫分超标，应无可行解"
+        # 硫分不再作为约束，该煤 ash=10∈[0,11]、volatile=30∈[28,34]，应有可行解
+        assert result["success"] is True, f"硫分不作为约束，ash/volatile在范围内应有可行解: {result.get('message')}"
 
     def test_empty_coals_returns_error(self):
         """空煤种列表 → success=false"""
@@ -152,7 +153,7 @@ class TestOptimizeBlending:
             assert abs(result["cost"] - 0.0) < 1e-6, f"所有煤价=0时成本应为0，实际 {result['cost']}"
 
     def test_very_tight_sulfur_constraint(self):
-        """极严硫分约束（0~0.3），只有低硫煤种能入选"""
+        """硫分不作为约束 → 优化器选更便宜的煤种（ash/volatile相同）"""
         coals_js = """
             [{name:"高硫煤", price:500, ash:10, sulfur:3.0, volatile:30, glue:80},
              {name:"低硫煤", price:1200, ash:10, sulfur:0.2, volatile:30, glue:80}]
@@ -162,14 +163,13 @@ class TestOptimizeBlending:
              volatile: {min: 28, max: 34}, glue: {min: 75, max: 100}}
         """
         result = _call_optimize(coals_js, bounds_js)
-        assert result["success"] is True, f"低硫煤可满足约束: {result.get('message')}"
-        m = result["metrics"]
-        assert m["sulfur"] <= 0.3 + 1e-6, f"硫分 {m['sulfur']} 应在 ≤ 0.3"
+        assert result["success"] is True, f"ash/volatile在范围内，应有可行解: {result.get('message')}"
+        # 硫分不再约束，两种煤 ash/volatile 相同，优化器选更便宜的高硫煤
         ratios = result["ratios"]
-        assert ratios[0] <= 1.0, f"高硫煤配比 {ratios[0]} 不应过高"
+        assert ratios[0] > ratios[1], f"高硫煤(500¥)应比低硫煤(1200¥)使用更多配比: {ratios}"
 
     def test_zero_target_range_exact_match(self):
-        """下限=上限时作为紧约束处理"""
+        """下限=上限时作为紧约束处理（仅灰分/挥发分参与约束）"""
         coals_js = """
             [{name:"A", price:800, ash:10, sulfur:0.8, volatile:30, glue:80},
              {name:"B", price:600, ash:10, sulfur:0.8, volatile:30, glue:90}]
@@ -182,7 +182,7 @@ class TestOptimizeBlending:
         if result["success"]:
             m = result["metrics"]
             assert abs(m["ash"] - 10.0) < 1e-4, f"灰分应精确为 10.0: {m['ash']}"
-            assert abs(m["sulfur"] - 0.8) < 1e-4, f"硫分应精确为 0.8: {m['sulfur']}"
+            assert abs(m["volatile"] - 30.0) < 1e-4, f"挥发分应精确为 30.0: {m['volatile']}"
 
     def test_no_feasible_solution_extreme_bounds(self):
         """目标范围过于严苛 → 无可行解"""
@@ -209,6 +209,12 @@ class TestOptimizeBlending:
             status = result["status"]
             for key in ["ash", "sulfur", "volatile", "glue"]:
                 assert key in status, f"status 缺少 {key}"
+            # 灰分和挥发分为约束指标，status 为布尔值
+            assert isinstance(status["ash"], bool), f"ash status 应为布尔值，实际 {type(status['ash'])}"
+            assert isinstance(status["volatile"], bool), f"volatile status 应为布尔值，实际 {type(status['volatile'])}"
+            # 硫分和粘结为参考值，status 为 null（Python None）
+            assert status["sulfur"] is None, f"sulfur status 应为 None，实际 {status['sulfur']}"
+            assert status["glue"] is None, f"glue status 应为 None，实际 {status['glue']}"
             assert isinstance(result["totalRatio"], (int, float))
             assert isinstance(result["cost"], (int, float))
 
@@ -269,9 +275,7 @@ class TestOptimizeBlending:
                     var vol = coals[0].volatile * w0 + coals[1].volatile * w1;
                     var glue = coals[0].glue * w0 + coals[1].glue * w1;
                     if (ash < 0 || ash > 11) continue;
-                    if (sulfur < 0 || sulfur > 1) continue;
                     if (vol < 28 || vol > 34) continue;
-                    if (glue < 75 || glue > 100) continue;
                     var cost = coals[0].price * w0 + coals[1].price * w1;
                     if (cost < bestCost - 1e-10) { bestCost = cost; bestY = [y0, y1]; }
                 }
