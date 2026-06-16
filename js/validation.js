@@ -10,8 +10,8 @@ function checkCoalTableCompleteness() {
         }
         const priceInput = row.cells[1]?.querySelector('input');
         const ashInput = row.cells[2]?.querySelector('input');
-        const sulfurInput = row.cells[3]?.querySelector('input');
-        const volatileInput = row.cells[4]?.querySelector('input');
+        const volatileInput = row.cells[3]?.querySelector('input');
+        const sulfurInput = row.cells[4]?.querySelector('input');
         const glueInput = row.cells[5]?.querySelector('input');
         const ratioInput = row.cells[6]?.querySelector('input');
 
@@ -37,12 +37,12 @@ function confirmAndRefresh(checkFunc, successMsg, refreshAction) {
     if (missing.length > 0) {
         const msg = "以下数值未填写：\n" + missing.join("\n") + "\n\n是否仍继续计算？(未填数值将自动视为0)";
         if (confirm(msg)) {
-            refreshAction();
-            alert(successMsg);
+            const proceeded = refreshAction();
+            if (proceeded !== false) alert(successMsg);
         }
     } else {
-        refreshAction();
-        alert(successMsg);
+        const proceeded = refreshAction();
+        if (proceeded !== false) alert(successMsg);
     }
 }
 

@@ -36,13 +36,13 @@ function renderTable() {
         const ashInput = createNumberInput(coal.ash, 0, 60, 0.1, (val) => { coals[idx].ash = val; });
         ashCell.appendChild(ashInput);
 
-        const sulfurCell = row.insertCell(3);
-        const sulfurInput = createNumberInput(coal.sulfur, 0, 10, 0.01, (val) => { coals[idx].sulfur = val; });
-        sulfurCell.appendChild(sulfurInput);
-
-        const volCell = row.insertCell(4);
+        const volCell = row.insertCell(3);
         const volInput = createNumberInput(coal.volatile, 0, 60, 0.1, (val) => { coals[idx].volatile = val; });
         volCell.appendChild(volInput);
+
+        const sulfurCell = row.insertCell(4);
+        const sulfurInput = createNumberInput(coal.sulfur, 0, 10, 0.01, (val) => { coals[idx].sulfur = val; });
+        sulfurCell.appendChild(sulfurInput);
 
         const glueCell = row.insertCell(5);
         const glueInput = createNumberInput(coal.glue, 0, 120, 1, (val) => { coals[idx].glue = val; });
@@ -82,8 +82,8 @@ function updateResultUI(avg) {
     if (!container) return;
     const items = [
         { label: '灰分 A%', key: 'ash', unit: '%', precision: 2, type: 'ash' },
-        { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 3, type: 'sulfur' },
         { label: '挥发分 V%', key: 'volatile', unit: '%', precision: 2, type: 'volatile' },
+        { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 3, type: 'sulfur' },
         { label: '粘结 G', key: 'glue', unit: '', precision: 1, type: 'glue' },
         { label: '综合煤价', key: 'price', unit: '¥/t', precision: 2, type: null }
     ];
@@ -179,8 +179,8 @@ function renderTargetInputs() {
     if (!container) return;
     const configs = [
         { id: 'ash', label: '灰分 A%', minVal: targetBounds.ash.min, maxVal: targetBounds.ash.max },
-        { id: 'sulfur', label: '硫分 S%', minVal: targetBounds.sulfur.min, maxVal: targetBounds.sulfur.max },
         { id: 'volatile', label: '挥发分 V%', minVal: targetBounds.volatile.min, maxVal: targetBounds.volatile.max },
+        { id: 'sulfur', label: '硫分 S%', minVal: targetBounds.sulfur.min, maxVal: targetBounds.sulfur.max },
         { id: 'glue', label: '粘结 G', minVal: targetBounds.glue.min, maxVal: targetBounds.glue.max }
     ];
     container.innerHTML = '';
@@ -214,13 +214,13 @@ function syncCoalsFromTable() {
         coals[i].ash = parseFloat(ashVal);
         if (isNaN(coals[i].ash)) coals[i].ash = 0;
 
-        const sulfurVal = row.cells[3].querySelector('input')?.value;
-        coals[i].sulfur = parseFloat(sulfurVal);
-        if (isNaN(coals[i].sulfur)) coals[i].sulfur = 0;
-
-        const volatileVal = row.cells[4].querySelector('input')?.value;
+        const volatileVal = row.cells[3].querySelector('input')?.value;
         coals[i].volatile = parseFloat(volatileVal);
         if (isNaN(coals[i].volatile)) coals[i].volatile = 0;
+
+        const sulfurVal = row.cells[4].querySelector('input')?.value;
+        coals[i].sulfur = parseFloat(sulfurVal);
+        if (isNaN(coals[i].sulfur)) coals[i].sulfur = 0;
 
         const glueVal = row.cells[5].querySelector('input')?.value;
         coals[i].glue = parseFloat(glueVal);
@@ -239,10 +239,10 @@ function addCoalManually() {
     if (priceInput === null) return;
     const ashInput = prompt("请输入灰分 A%：", "10");
     if (ashInput === null) return;
-    const sulfurInput = prompt("请输入硫分 S%：", "0.8");
-    if (sulfurInput === null) return;
     const volatileInput = prompt("请输入挥发分 V%：", "30");
     if (volatileInput === null) return;
+    const sulfurInput = prompt("请输入硫分 S%：", "0.8");
+    if (sulfurInput === null) return;
     const glueInput = prompt("请输入粘结 G：", "70");
     if (glueInput === null) return;
     const ratioInput = prompt("请输入配比（成）：", "0.5");
@@ -324,8 +324,8 @@ function renderOptimizeResult(result) {
         html += '<div style="font-weight:bold; margin-bottom:4px;">📊 预期混合指标</div>';
         var metricItems = [
             { label: '灰分 A%', key: 'ash', unit: '%', precision: 2, constrained: true },
-            { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 3, constrained: false },
             { label: '挥发分 V%', key: 'volatile', unit: '%', precision: 2, constrained: true },
+            { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 3, constrained: false },
             { label: '粘结 G', key: 'glue', unit: '', precision: 1, constrained: false }
         ];
         for (var j = 0; j < metricItems.length; j++) {
@@ -383,6 +383,10 @@ function applyOptimizeRatios(ratios) {
             }
         }
     }
+    // 同步目标范围并自动计算更新达标情况
+    fetchTargetBoundsFromInputs(true);
+    var avg = calculateHybridMetrics();
+    updateResultUI(avg);
     updateTotalRatioDisplay();
-    alert('已应用优化建议配比，请点击【确认指标和配比】按钮查看计算结果。');
+    alert('已应用优化建议配比，计算结果已更新。');
 }
