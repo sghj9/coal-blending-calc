@@ -323,17 +323,23 @@ function renderOptimizeResult(result) {
         html += '<div style="padding: 8px 16px; border-top: 1px solid #eee;">';
         html += '<div style="font-weight:bold; margin-bottom:4px;">📊 预期混合指标</div>';
         var metricItems = [
-            { label: '灰分 A%', key: 'ash', unit: '%', precision: 2 },
-            { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 3 },
-            { label: '挥发分 V%', key: 'volatile', unit: '%', precision: 2 },
-            { label: '粘结 G', key: 'glue', unit: '', precision: 1 }
+            { label: '灰分 A%', key: 'ash', unit: '%', precision: 2, constrained: true },
+            { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 3, constrained: false },
+            { label: '挥发分 V%', key: 'volatile', unit: '%', precision: 2, constrained: true },
+            { label: '粘结 G', key: 'glue', unit: '', precision: 1, constrained: false }
         ];
         for (var j = 0; j < metricItems.length; j++) {
             var item = metricItems[j];
             var val = result.metrics[item.key];
-            var isPass = result.status ? result.status[item.key] : false;
-            var statusText = isPass ? '✅ 达标' : '⚠️ 超标';
-            var statusColor = isPass ? '#27ae60' : '#e74c3c';
+            var statusText, statusColor;
+            if (item.constrained) {
+                var isPass = result.status ? result.status[item.key] : false;
+                statusText = isPass ? '✅ 达标' : '⚠️ 超标';
+                statusColor = isPass ? '#27ae60' : '#e74c3c';
+            } else {
+                statusText = '📋 参考值';
+                statusColor = '#888';
+            }
             html += '<div style="display:flex; justify-content:space-between; padding:2px 0;">' +
                 '<span>' + item.label + '</span>' +
                 '<span>' + val.toFixed(item.precision) + ' ' + item.unit + '</span>' +
