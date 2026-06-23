@@ -33,23 +33,32 @@ function calculateHybridMetrics() {
     }
 
     let sumAsh = 0, sumSulfur = 0, sumVolatile = 0, sumGlue = 0, sumPrice = 0;
+    let totalRatio = 0;
 
     for (let c of coals) {
-        let weight = (c.ratio || 0) * 0.1;
-        sumAsh += (c.ash || 0) * weight;
-        sumSulfur += (c.sulfur || 0) * weight;
-        sumVolatile += (c.volatile || 0) * weight;
-        sumGlue += (c.glue || 0) * weight;
-        sumPrice += (c.price || 0) * weight;
+        let ratio = (c.ratio || 0);
+        totalRatio += ratio;
+        // 加权分子：Σ(指标 × 配比)
+        sumAsh += (c.ash || 0) * ratio;
+        sumSulfur += (c.sulfur || 0) * ratio;
+        sumVolatile += (c.volatile || 0) * ratio;
+        sumGlue += (c.glue || 0) * ratio;
+        sumPrice += (c.price || 0) * ratio;
     }
 
-    // 分母固定为 1.0（隐含十成满配）
+    // 分母 = 实际总配比 Σr_i（标准加权平均）；总配比为 0 时结果全 0（除零保护）
+    if (totalRatio === 0) {
+        return { ash: 0, sulfur: 0, volatile: 0, glue: 0, price: 0 };
+    }
+
+    // 四舍五入到 2 位小数
+    var round2 = function (v) { return Math.round(v * 100) / 100; };
     return {
-        ash: sumAsh,
-        sulfur: sumSulfur,
-        volatile: sumVolatile,
-        glue: sumGlue,
-        price: sumPrice
+        ash: round2(sumAsh / totalRatio),
+        sulfur: round2(sumSulfur / totalRatio),
+        volatile: round2(sumVolatile / totalRatio),
+        glue: round2(sumGlue / totalRatio),
+        price: round2(sumPrice / totalRatio)
     };
 }
 

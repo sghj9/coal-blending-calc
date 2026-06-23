@@ -96,9 +96,9 @@ def test_calculate_hybrid_metrics_negative_inputs_passthrough():
         var avg = calculateHybridMetrics();
         report({ash: avg.ash, price: avg.price});
     """)
-    # w=0.2, ash=-5*0.2/1=-1.0, price=-100*0.2/1=-20.0
-    assert abs(result["ash"] - (-1.0)) < 1e-10
-    assert abs(result["price"] - (-20.0)) < 1e-10
+    # 实际总配比=2，ash=-5×2/2=-5.0，price=-100×2/2=-100.0
+    assert abs(result["ash"] - (-5.0)) < 1e-10
+    assert abs(result["price"] - (-100.0)) < 1e-10
 
 
 # ═══════════════════════════════════════════════════════════════

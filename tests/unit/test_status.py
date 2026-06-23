@@ -169,7 +169,7 @@ def test_fetch_target_bounds_with_missing_inputs():
 
 
 def test_default_coals_against_default_targets():
-    """默认煤种对默认目标范围的达标判定（分母=1.0）"""
+    """默认煤种对默认目标范围的达标判定（实际总配比=8，标准加权平均）"""
     result = _js1("""
         targetBounds = {
             ash: { min: 0, max: 11.0 },
@@ -188,12 +188,12 @@ def test_default_coals_against_default_targets():
         });
     """)
     status = result
-    # avg: ash=8.385, sulfur=1.347, volatile=25.12, glue=62.8
-    assert status["ash"], "默认灰分 8.385 应在 [0, 11] 内 → 达标"
-    assert not status["sulfur"], "默认硫分 1.347 超出上限 1.0 → 超标"
-    assert not status["volatile"], (
-        "默认挥发分 25.12 低于下限 28 → 超标（总配比 8 成，不足十成）"
+    # avg（总配比=8）: ash=10.48, sulfur=1.68, volatile=31.4, glue=78.5
+    assert status["ash"], "默认灰分 10.48 应在 [0, 11] 内 → 达标"
+    assert not status["sulfur"], "默认硫分 1.68 超出上限 1.0 → 超标"
+    assert status["volatile"], (
+        "默认挥发分 31.4 在 [28, 34] 内 → 达标"
     )
-    assert not status["glue"], (
-        "默认粘结 62.8 低于下限 75 → 超标（总配比 8 成，不足十成）"
+    assert status["glue"], (
+        "默认粘结 78.5 在 [75, 100] 内 → 达标"
     )
