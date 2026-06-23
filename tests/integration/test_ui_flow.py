@@ -270,7 +270,7 @@ def test_total_ratio_at_or_under_10_proceeds():
     assert result1["alertMsg"] == ''
     assert result1["ash"] == pytest.approx(15.0)
 
-    # 场景2: 小于 10 成
+    # 场景2: 小于 10 成（实际分母=5，标准加权平均）
     result2 = _js1("""
         coals = [
             {name:"A", price:100, ash:10, sulfur:1, volatile:30, glue:90, ratio:3},
@@ -284,4 +284,5 @@ def test_total_ratio_at_or_under_10_proceeds():
         report({alertMsg: alertMsg, ash: calculateHybridMetrics().ash});
     """)
     assert result2["alertMsg"] == ''
-    assert result2["ash"] == pytest.approx(7.0)
+    # 实际总配比=5，ash=(10×3+20×2)/5=(30+40)/5=14.0
+    assert result2["ash"] == pytest.approx(14.0)
