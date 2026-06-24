@@ -174,4 +174,4 @@ def test_get_default_coals_explicitly_copies_ratio():
         var copy = getDefaultCoals();
         report(copy[0].ratio);
     """)
-    assert result == 1.0
+    assert result == 4.5

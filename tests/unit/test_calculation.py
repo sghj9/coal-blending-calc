@@ -71,17 +71,17 @@ def test_return_structure_always_five_keys():
     assert set(avg.keys()) == {"ash", "sulfur", "volatile", "glue", "price"}
 
 
-def test_default_eight_coals_exact_result():
-    """8 种默认煤种的计算结果（实际总配比=8，四舍五入到 2 位）"""
+def test_default_four_coals_exact_result():
+    """4 种默认煤种的计算结果（实际总配比=10，四舍五入到 2 位）"""
     avg = _avg("getDefaultCoals()")
-    # 总配比=8
-    # ash=83.85/8=10.48125→10.48, sulfur=13.47/8=1.68375→1.68
-    # volatile=251.2/8=31.4, glue=628/8=78.5, price=6903/8=862.875→862.88
-    assert avg["ash"] == pytest.approx(10.48, abs=1e-6)
-    assert avg["sulfur"] == pytest.approx(1.68, abs=1e-6)
-    assert avg["volatile"] == pytest.approx(31.4, abs=1e-6)
-    assert avg["glue"] == pytest.approx(78.5, abs=1e-6)
-    assert avg["price"] == pytest.approx(862.88, abs=1e-6)
+    # 总配比=4.5+3+2+0.5=10
+    # ash=116.73/10=11.673→11.67, sulfur=14.35/10=1.435→1.44
+    # volatile=331.59/10=33.159→33.16, glue=845/10=84.5, price=8906/10=890.6
+    assert avg["ash"] == pytest.approx(11.67, abs=1e-6)
+    assert avg["sulfur"] == pytest.approx(1.44, abs=1e-6)
+    assert avg["volatile"] == pytest.approx(33.16, abs=1e-6)
+    assert avg["glue"] == pytest.approx(84.5, abs=1e-6)
+    assert avg["price"] == pytest.approx(890.6, abs=1e-6)
 
 
 def test_price_participates_in_same_weighted_average():

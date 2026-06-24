@@ -36,12 +36,12 @@ def _call_optimize(coals_js, bounds_js=None):
 class TestOptimizerE2E:
     """优化器端到端：跨模块协作的一致性验证"""
 
-    def test_default_8_coals_finds_feasible_solution(self):
-        """8 种默认煤 + 默认目标范围 → 应找到可行解"""
+    def test_default_4_coals_finds_feasible_solution(self):
+        """4 种默认煤 + 默认目标范围 → 应找到可行解"""
         result = _call_optimize("getDefaultCoals()")
         assert result["success"] is True, f"默认煤种应对默认目标范围存在可行解: {result.get('message')}"
         assert result["ratios"] is not None
-        assert len(result["ratios"]) == 8
+        assert len(result["ratios"]) == 4
         for i, r in enumerate(result["ratios"]):
             assert r >= -1e-10, f"煤种 {i} 配比 {r} 不应为负数"
 

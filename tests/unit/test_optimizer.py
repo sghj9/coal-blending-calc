@@ -311,22 +311,44 @@ class TestSeasoningCoalConstraint:
     """调料煤：单种 ≤1 成、合计 ≤1.5 成"""
 
     def test_seasoning_coal_single_capped_at_1(self):
-        """默认煤中免洗煤(索引4)/金河煤(索引3)为调料煤，优化后每种 ≤ 1 成"""
-        result = _call_optimize("getDefaultCoals()")
-        assert result["success"] is True
+        """调料煤（免洗煤）单种 ≤1 成：自定义 2 煤，免洗煤低价高指标本可被大量选用"""
+        coals_js = """
+            [{name:"普通煤", price:900, ash:10, sulfur:0.8, volatile:30, glue:90},
+             {name:"免洗煤", price:300, ash:6, sulfur:0.3, volatile:30, glue:90}]
+        """
+        bounds_js = """
+            {ash: {min: 0, max: 11.0}, sulfur: {min: 0, max: 1.0},
+             volatile: {min: 28, max: 34}, glue: {min: 75, max: 100}}
+        """
+        result = _call_optimize(coals_js, bounds_js)
+        assert result["success"] is True, f"应有可行解: {result.get('message')}"
+        # 免洗煤(索引1)为调料煤，单种配比 ≤1 成
+        assert result["ratios"][1] <= 1.0 + 1e-6, (
+            f"调料煤配比 {result['ratios'][1]} 应 ≤ 1 成"
+        )
+
+    def test_seasoning_coal_sum_capped_at_1_5(self):
+        """调料煤合计 ≤1.5 成：自定义 3 煤含 2 种调料煤（免洗煤+金河煤），均低价且指标达标"""
+        coals_js = """
+            [{name:"普通煤", price:900, ash:10, sulfur:0.8, volatile:30, glue:90},
+             {name:"免洗煤", price:300, ash:6, sulfur:0.3, volatile:30, glue:90},
+             {name:"金河煤", price:350, ash:6, sulfur:0.4, volatile:30, glue:90}]
+        """
+        bounds_js = """
+            {ash: {min: 0, max: 11.0}, sulfur: {min: 0, max: 1.0},
+             volatile: {min: 28, max: 34}, glue: {min: 75, max: 100}}
+        """
+        result = _call_optimize(coals_js, bounds_js)
+        assert result["success"] is True, f"应有可行解: {result.get('message')}"
         EPS = 1e-6
-        # 默认煤顺序固定：3=金河煤, 4=免洗煤（见 test_data.test_default_coal_names）
-        for i in (3, 4):
+        # 索引 1（免洗煤）、2（金河煤）各 ≤1 成
+        for i in (1, 2):
             assert result["ratios"][i] <= 1.0 + EPS, (
                 f"调料煤(索引{i}) 配比 {result['ratios'][i]} 应 ≤ 1 成"
             )
-
-    def test_seasoning_coal_sum_capped_at_1_5(self):
-        """默认煤中调料煤（金河煤+免洗煤）合计 ≤ 1.5 成"""
-        result = _call_optimize("getDefaultCoals()")
-        assert result["success"] is True
-        seasoning_sum = result["ratios"][3] + result["ratios"][4]
-        assert seasoning_sum <= 1.5 + 1e-6, f"调料煤合计 {seasoning_sum} 应 ≤ 1.5 成"
+        # 两种调料煤合计 ≤1.5 成
+        seasoning_sum = result["ratios"][1] + result["ratios"][2]
+        assert seasoning_sum <= 1.5 + EPS, f"调料煤合计 {seasoning_sum} 应 ≤ 1.5 成"
 
     def test_seasoning_coal_alias_recognized(self):
         """别名（金河精煤/魏矿精煤/无烟沫子精煤）被识别为调料煤，单种 ≤ 1 成"""
