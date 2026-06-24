@@ -31,7 +31,7 @@
         <div class="table-wrapper">
             <table class="coal-table" id="coalTable">
                 <thead>
-                    <tr><th>煤种名称</th><th>煤价(¥/t)</th><th>灰分 A%</th><th>挥发分 V%</th><th>硫分 S%</th><th>粘结 G</th><th>配比(成)</th><th>操作</th></tr>
+                    <tr><th>煤种名称</th><th>煤价(¥/t)</th><th>灰分 A%</th><th>挥发分 V%</th><th>硫分 S%</th><th>粘结 G</th><th>配比(成)</th><th>是否调料煤</th><th>操作</th></tr>
                 </thead>
                 <tbody id="tableBody"></tbody>
             </table>
@@ -57,7 +57,7 @@
         </div>
         <div class="metrics-list" id="metricsList"></div>
     </div>
-    <div class="footer">✅ 修改后请点击对应确认按钮 | 混合指标计算方式：按配比(成)*0.1加权求和后，分母固定为1.0（隐含十成满配）</div>
+    <div class="footer">✅ 修改后请点击对应确认按钮 | 混合指标计算方式：标准加权平均 Σ(指标×配比) ÷ Σ配比，结果精确到 2 位小数</div>
 </div>
 
 <script src="js/main.js"></script>

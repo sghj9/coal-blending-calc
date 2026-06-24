@@ -81,20 +81,20 @@ def test_initial_target_bounds_values():
     """初始化后的目标范围默认值"""
     result = _js1("""
         targetBounds = {
-            ash: { min: 0, max: 11.0 },
-            sulfur: { min: 0, max: 1.0 },
-            volatile: { min: 28, max: 34 },
-            glue: { min: 75, max: 100 }
+            ash: { min: 11, max: 12 },
+            sulfur: { min: 1, max: 2 },
+            volatile: { min: 28, max: 33 },
+            glue: { min: 85, max: 100 }
         };
         report(_clone(targetBounds));
     """)
-    assert result["ash"]["min"] == 0
-    assert result["ash"]["max"] == 11.0
-    assert result["sulfur"]["min"] == 0
-    assert result["sulfur"]["max"] == 1.0
+    assert result["ash"]["min"] == 11
+    assert result["ash"]["max"] == 12
+    assert result["sulfur"]["min"] == 1
+    assert result["sulfur"]["max"] == 2
     assert result["volatile"]["min"] == 28
-    assert result["volatile"]["max"] == 34
-    assert result["glue"]["min"] == 75
+    assert result["volatile"]["max"] == 33
+    assert result["glue"]["min"] == 85
     assert result["glue"]["max"] == 100
 
 
@@ -169,13 +169,13 @@ def test_fetch_target_bounds_with_missing_inputs():
 
 
 def test_default_coals_against_default_targets():
-    """默认煤种对默认目标范围的达标判定（分母=1.0）"""
+    """默认煤种对默认目标范围的达标判定（实际总配比=10，标准加权平均）"""
     result = _js1("""
         targetBounds = {
-            ash: { min: 0, max: 11.0 },
-            sulfur: { min: 0, max: 1.0 },
-            volatile: { min: 28, max: 34 },
-            glue: { min: 75, max: 100 }
+            ash: { min: 11, max: 12 },
+            sulfur: { min: 1, max: 2 },
+            volatile: { min: 28, max: 33 },
+            glue: { min: 85, max: 100 }
         };
         coals = getDefaultCoals();
         var avg = calculateHybridMetrics();
@@ -188,12 +188,12 @@ def test_default_coals_against_default_targets():
         });
     """)
     status = result
-    # avg: ash=8.385, sulfur=1.347, volatile=25.12, glue=62.8
-    assert status["ash"], "默认灰分 8.385 应在 [0, 11] 内 → 达标"
-    assert not status["sulfur"], "默认硫分 1.347 超出上限 1.0 → 超标"
+    # avg（总配比=10）: ash=11.67, sulfur=1.44, volatile=33.16, glue=84.5
+    assert status["ash"], "默认灰分 11.67 应在 [11, 12] 内 → 达标"
+    assert status["sulfur"], "默认硫分 1.44 在 [1, 2] 内 → 达标"
     assert not status["volatile"], (
-        "默认挥发分 25.12 低于下限 28 → 超标（总配比 8 成，不足十成）"
+        "默认挥发分 33.16 超出上限 33 → 超标"
     )
     assert not status["glue"], (
-        "默认粘结 62.8 低于下限 75 → 超标（总配比 8 成，不足十成）"
+        "默认粘结 84.5 低于下限 85 → 超标"
     )

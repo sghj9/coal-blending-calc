@@ -1,21 +1,35 @@
 const DEFAULT_COALS = [
-    { name: "神华9层", price: 650, ash: 6.5, sulfur: 3.0, volatile: 31, glue: 90, ratio: 1.0 },
-    { name: "11#主焦混洗", price: 900, ash: 9.0, sulfur: 0.8, volatile: 29, glue: 90, ratio: 2.0 },
-    { name: "四股权", price: 1150, ash: 11.5, sulfur: 3.4, volatile: 34, glue: 90, ratio: 1.5 },
-    { name: "金河煤", price: 600, ash: 6.0, sulfur: 0.2, volatile: 30, glue: 20, ratio: 0.6 },
-    { name: "免洗煤", price: 500, ash: 5.0, sulfur: 0.5, volatile: 32, glue: 0, ratio: 0.5 },
-    { name: "圆通2硫", price: 1000, ash: 15.0, sulfur: 2.0, volatile: 31, glue: 88, ratio: 0.5 },
-    { name: "圆通1.5硫", price: 700, ash: 15.0, sulfur: 1.5, volatile: 32, glue: 86, ratio: 1.0 },
-    { name: "温明煤", price: 1020, ash: 15.0, sulfur: 1.0, volatile: 33, glue: 90, ratio: 0.9 }
+    { name: "温明15灰精煤", price: 950, ash: 15.22, sulfur: 0.68, volatile: 34.14, glue: 90, ratio: 4.5 },
+    { name: "四股泉", price: 1067, ash: 11.5, sulfur: 3.4, volatile: 34, glue: 90, ratio: 3 },
+    { name: "混洗煤（2-1/鑫发矿1:1）", price: 690, ash: 5.62, sulfur: 0.42, volatile: 29.98, glue: 85, ratio: 2 },
+    { name: "免洗煤", price: 100, ash: 5, sulfur: 0.5, volatile: 32, glue: 0, ratio: 0.5 }
 ];
 
 let coals = [];
 
+// 调料煤清单（canonical 名称 + 别名），优化器按此清单约束配比：
+// 单种 ≤ 1 成、多种合计 ≤ 1.5 成。匹配方式：coal.name 精确等于清单任一项。
+const SEASONING_COAL_NAMES = [
+    "免洗煤", "金河煤", "金河精煤",
+    "魏矿", "魏矿精煤",
+    "无烟沫子", "无烟煤", "无烟沫子精煤"
+];
+
+/**
+ * 判断煤种是否为调料煤（按名称精确匹配清单）
+ * @param {string} name - 煤种名称
+ * @returns {boolean}
+ */
+function isSeasoningCoal(name) {
+    if (!name) return false;
+    return SEASONING_COAL_NAMES.indexOf(name) >= 0;
+}
+
 let targetBounds = {
-    ash: { min: 0, max: 11.0 },
-    sulfur: { min: 0, max: 1.0 },
-    volatile: { min: 28, max: 34 },
-    glue: { min: 75, max: 100 }
+    ash: { min: 11, max: 12 },
+    sulfur: { min: 1, max: 2 },
+    volatile: { min: 28, max: 33 },
+    glue: { min: 85, max: 100 }
 };
 
 function getDefaultCoals() {
@@ -33,23 +47,32 @@ function calculateHybridMetrics() {
     }
 
     let sumAsh = 0, sumSulfur = 0, sumVolatile = 0, sumGlue = 0, sumPrice = 0;
+    let totalRatio = 0;
 
     for (let c of coals) {
-        let weight = (c.ratio || 0) * 0.1;
-        sumAsh += (c.ash || 0) * weight;
-        sumSulfur += (c.sulfur || 0) * weight;
-        sumVolatile += (c.volatile || 0) * weight;
-        sumGlue += (c.glue || 0) * weight;
-        sumPrice += (c.price || 0) * weight;
+        let ratio = (c.ratio || 0);
+        totalRatio += ratio;
+        // 加权分子：Σ(指标 × 配比)
+        sumAsh += (c.ash || 0) * ratio;
+        sumSulfur += (c.sulfur || 0) * ratio;
+        sumVolatile += (c.volatile || 0) * ratio;
+        sumGlue += (c.glue || 0) * ratio;
+        sumPrice += (c.price || 0) * ratio;
     }
 
-    // 分母固定为 1.0（隐含十成满配）
+    // 分母 = 实际总配比 Σr_i（标准加权平均）；总配比为 0 时结果全 0（除零保护）
+    if (totalRatio === 0) {
+        return { ash: 0, sulfur: 0, volatile: 0, glue: 0, price: 0 };
+    }
+
+    // 四舍五入到 2 位小数
+    var round2 = function (v) { return Math.round(v * 100) / 100; };
     return {
-        ash: sumAsh,
-        sulfur: sumSulfur,
-        volatile: sumVolatile,
-        glue: sumGlue,
-        price: sumPrice
+        ash: round2(sumAsh / totalRatio),
+        sulfur: round2(sumSulfur / totalRatio),
+        volatile: round2(sumVolatile / totalRatio),
+        glue: round2(sumGlue / totalRatio),
+        price: round2(sumPrice / totalRatio)
     };
 }
 

@@ -2,10 +2,13 @@
  * 配比优化求解器 — 两阶段单纯形法 + Branch-and-Bound MILP + 配比优化接口
  *
  * 将配比优化建模为混合整数线性规划（MILP）：
- *   min Σ(p_i × 0.01 × y_i)     (最小化综合煤价, y_i = 10 × r_i)
- *   s.t. 指标下限 ≤ Σ(指标_i × 0.01 × y_i) ≤ 指标上限
- *        Σ y_i ≤ 100              (总配比不超过十成)
- *        y_i ∈ Z⁺ (0~100 整数)
+ *   min Σ(p_i × 0.001 × y_i)    (最小化综合煤价, y_i = 100 × r_i)
+ *   s.t. 指标下限 ≤ Σ(指标_i × 0.001 × y_i) ≤ 指标上限   (灰分/挥发分/硫分)
+ *        Σ y_i = 1000            (总配比等于十成，等式约束)
+ *        y_i ∈ Z⁺ (0~1000 整数, 每 1 单位 = 0.01 成配比)
+ *
+ * 混合指标采用标准加权平均 Σ(指标×r)/Σr；因 Σr=10（等式）为常数，
+ * 加权平均 = Σ(指标×y×0.001)，约束保持线性。粘结不作为约束，仅参考。
  */
 
 // ═══════════════════════════════════════════════════════════
@@ -329,7 +332,7 @@ function simplex(c, A, b) {
  */
 function _milpSolve(c, A, b, nVars) {
     var EPS = 1e-10;
-    var maxNodes = 500;
+    var maxNodes = 2000;
     var nodeCount = 0;
 
     var bestObj = Infinity;
@@ -443,8 +446,8 @@ function optimizeBlending(coals, bounds) {
     var bVolatile = bounds.volatile || { min: 0, max: 50 };
     var bGlue = bounds.glue || { min: 0, max: 120 };
 
-    // ── 构建 MILP（y_i = 10 × r_i，y_i 为整数）──
-    // 所有系数 × 0.01（因为 r_i = y_i/10，权重 = y_i × 0.01）
+    // ── 构建 MILP（y_i = 100 × r_i，y_i 为整数，步长 0.01 成）──
+    // 所有系数 × 0.001（因为 r_i = y_i/100，权重 = y_i × 0.001，分母固定为 10 成）
 
     var c = [];        // 目标函数系数
     var A = [];        // 约束矩阵
@@ -452,47 +455,77 @@ function optimizeBlending(coals, bounds) {
     var EPS = 1e-12;
 
     for (var i = 0; i < n; i++) {
-        c.push((coals[i].price || 0) * 0.01);
+        c.push((coals[i].price || 0) * 0.001);
     }
 
-    // 仅灰分和挥发分参与优化约束（洗煤后硫分、粘结不可预判）
+    // 灰分、挥发分、硫分参与优化约束（粘结洗煤后不可预判，仅参考）
     var metricDefs = [
         { key: "ash", min: bAsh.min, max: bAsh.max },
-        { key: "volatile", min: bVolatile.min, max: bVolatile.max }
+        { key: "volatile", min: bVolatile.min, max: bVolatile.max },
+        { key: "sulfur", min: bSulfur.min, max: bSulfur.max }
     ];
 
     for (var k = 0; k < metricDefs.length; k++) {
         var mk = metricDefs[k];
 
-        // 上界约束：Σ(val_i × 0.01 × y_i) ≤ max
+        // 上界约束：Σ(val_i × 0.001 × y_i) ≤ max
         if (mk.max < Infinity) {
             var rowUpper = [];
             for (var i = 0; i < n; i++) {
-                rowUpper.push((coals[i][mk.key] || 0) * 0.01);
+                rowUpper.push((coals[i][mk.key] || 0) * 0.001);
             }
             A.push(rowUpper);
             bVec.push(mk.max);
         }
 
-        // 下界约束：Σ(val_i × 0.01 × y_i) ≥ min
-        // → -Σ(val_i × 0.01 × y_i) ≤ -min
+        // 下界约束：Σ(val_i × 0.001 × y_i) ≥ min
+        // → -Σ(val_i × 0.001 × y_i) ≤ -min
         if (mk.min > EPS) {
             var rowLower = [];
             for (var i = 0; i < n; i++) {
-                rowLower.push(-(coals[i][mk.key] || 0) * 0.01);
+                rowLower.push(-(coals[i][mk.key] || 0) * 0.001);
             }
             A.push(rowLower);
             bVec.push(-mk.min);
         }
     }
 
-    // 总配比约束：Σ y_i ≤ 100（即 Σ r_i ≤ 10）
-    var rowTotal = [];
+    // 总配比约束：Σ y_i = 1000（即 Σ r_i = 10，等式约束）
+    // 拆为 ≤ 1000 与 ≥ 1000（即 -Σ y_i ≤ -1000）两行
+    var rowTotalLE = [];
+    var rowTotalGE = [];
     for (var i = 0; i < n; i++) {
-        rowTotal.push(1);
+        rowTotalLE.push(1);
+        rowTotalGE.push(-1);
     }
-    A.push(rowTotal);
-    bVec.push(100);
+    A.push(rowTotalLE);
+    bVec.push(1000);
+    A.push(rowTotalGE);
+    bVec.push(-1000);
+
+    // 调料煤约束：单种 ≤ 1 成（y_i ≤ 100），多种合计 ≤ 1.5 成（Σy_i ≤ 150）
+    // 仅对名称命中调料煤清单的煤种生效（见 main.js isSeasoningCoal）
+    var seasoningIdx = [];
+    for (var i = 0; i < n; i++) {
+        if (isSeasoningCoal(coals[i].name)) seasoningIdx.push(i);
+    }
+    // 单种上限：每个调料煤 y_i ≤ 100
+    for (var s = 0; s < seasoningIdx.length; s++) {
+        var rowSingle = [];
+        for (var i = 0; i < n; i++) rowSingle.push(0);
+        rowSingle[seasoningIdx[s]] = 1;
+        A.push(rowSingle);
+        bVec.push(100);
+    }
+    // 合计上限：Σ 调料煤 y_i ≤ 150（仅当存在 ≥2 种调料煤时才追加）
+    if (seasoningIdx.length > 1) {
+        var rowSum = [];
+        for (var i = 0; i < n; i++) {
+            rowSum.push(seasoningIdx.indexOf(i) >= 0 ? 1 : 0);
+        }
+        A.push(rowSum);
+        bVec.push(150);
+    }
 
     // ── 调用 MILP 求解（前 n 个变量为整数）──
     var result = _milpSolve(c, A, bVec, n);
@@ -505,44 +538,45 @@ function optimizeBlending(coals, bounds) {
         };
     }
 
-    // ── y_i → r_i（/10，天然 1 位小数，无需舍入）──
+    // ── y_i → r_i（/100，天然 2 位小数，无需舍入）──
     var ratios = [];
     var totalRatio = 0;
     for (var i = 0; i < n; i++) {
         var yi = result.x[i] || 0;
-        var ri = yi / 10;
+        var ri = yi / 100;
         ratios.push(ri);
         totalRatio += ri;
     }
-    totalRatio = Math.round(totalRatio * 10) / 10;
+    totalRatio = Math.round(totalRatio * 100) / 100;
 
-    // ── 计算混合指标（使用 MILP 整数解配比，WYSIWYG）──
+    // ── 计算混合指标（标准加权平均 Σ(指标×r)/Σr，2 位舍入）──
+    // totalRatio 由等式约束保证为 10；为前向兼容（未来总配比=8 等场景），
+    // 这里按实际 totalRatio 做分母，并做除零保护。
     var sumAsh = 0, sumSulfur = 0, sumVolatile = 0, sumGlue = 0, sumPrice = 0;
-
     for (var i = 0; i < n; i++) {
         var r = ratios[i];
-        var weight = r * 0.1;
-        sumAsh += (coals[i].ash || 0) * weight;
-        sumSulfur += (coals[i].sulfur || 0) * weight;
-        sumVolatile += (coals[i].volatile || 0) * weight;
-        sumGlue += (coals[i].glue || 0) * weight;
-        sumPrice += (coals[i].price || 0) * weight;
+        sumAsh += (coals[i].ash || 0) * r;
+        sumSulfur += (coals[i].sulfur || 0) * r;
+        sumVolatile += (coals[i].volatile || 0) * r;
+        sumGlue += (coals[i].glue || 0) * r;
+        sumPrice += (coals[i].price || 0) * r;
     }
 
-    // 分母固定为 1.0（隐含十成满配）
+    var denom = (totalRatio === 0) ? 1 : totalRatio;  // 除零保护
+    var round2 = function (v) { return Math.round(v * 100) / 100; };
     var metrics = {
-        ash: sumAsh,
-        sulfur: sumSulfur,
-        volatile: sumVolatile,
-        glue: sumGlue,
-        price: sumPrice
+        ash: round2(sumAsh / denom),
+        sulfur: round2(sumSulfur / denom),
+        volatile: round2(sumVolatile / denom),
+        glue: round2(sumGlue / denom),
+        price: round2(sumPrice / denom)
     };
 
-    // ── 达标判定 ──
+    // ── 达标判定（基于 2 位舍入后的指标值）──
     var status = {
-        ash: sumAsh >= bAsh.min - EPS && sumAsh <= bAsh.max + EPS,
-        sulfur: null,   // 洗煤后硫分不可预判，仅作参考值
-        volatile: sumVolatile >= bVolatile.min - EPS && sumVolatile <= bVolatile.max + EPS,
+        ash: metrics.ash >= bAsh.min - EPS && metrics.ash <= bAsh.max + EPS,
+        sulfur: metrics.sulfur >= bSulfur.min - EPS && metrics.sulfur <= bSulfur.max + EPS,
+        volatile: metrics.volatile >= bVolatile.min - EPS && metrics.volatile <= bVolatile.max + EPS,
         glue: null      // 洗煤后粘结不可预判，仅作参考值
     };
 
@@ -550,15 +584,9 @@ function optimizeBlending(coals, bounds) {
         success: true,
         ratios: ratios,
         totalRatio: totalRatio,
-        cost: Math.round(sumPrice * 100) / 100,
-        metrics: {
-            ash: Math.round(metrics.ash * 10000) / 10000,
-            sulfur: Math.round(metrics.sulfur * 10000) / 10000,
-            volatile: Math.round(metrics.volatile * 10000) / 10000,
-            glue: Math.round(metrics.glue * 10000) / 10000,
-            price: Math.round(metrics.price * 100) / 100
-        },
+        cost: metrics.price,
+        metrics: metrics,
         status: status,
-        message: "优化成功，综合煤价 " + (Math.round(sumPrice * 100) / 100).toFixed(2) + " ¥/t"
+        message: "优化成功，综合煤价 " + metrics.price.toFixed(2) + " ¥/t"
     };
 }

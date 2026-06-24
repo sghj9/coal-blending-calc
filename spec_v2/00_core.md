@@ -60,7 +60,7 @@ coal_blending_calc/
 | `js/optimizer.js` | `simplex()`、`_runSimplexPhase()`、`_pivot()`、`optimizeBlending()` | 两阶段单纯形法求解器、配比优化接口 |
 | `js/storage.js` | （空，仅注释） | 预留 localStorage / IndexedDB 扩展点 |
 | `css/style.css` | 全部 CSS 规则（从原 HTML `<style>` 块提取，原样保留） | 页面样式、响应式布局 |
-| `data/defaultCoal.json` | 8 条默认煤种数据（JSON 数组） | 数据镜像文件，供独立查看/编辑；运行时使用 `main.js` 中的 `DEFAULT_COALS` 常量 |
+| `data/defaultCoal.json` | 4 条默认煤种数据（JSON 数组） | 数据镜像文件，供独立查看/编辑；运行时使用 `main.js` 中的 `DEFAULT_COALS` 常量 |
 
 ### 1.2 脚本加载顺序
 
@@ -93,6 +93,7 @@ coal_blending_calc/
 | 挥发分 | number | ≥0，默认0 |
 | 粘结 | number | ≥0，默认0 |
 | 配比（成） | number | ≥0，默认0，1成=10% |
+| 是否调料煤 | boolean（派生） | 只读，不持久化；由煤种名称精确匹配调料煤清单得出，仅用于优化器约束与表格显示 |
 | 目标范围（每项 min/max） | number | 可空，空值按0处理 |
 
 ## 四、端点 / 接口

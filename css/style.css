@@ -251,6 +251,15 @@ body {
     box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
 }
 
+/* 是否调料煤 只读列样式 */
+.coal-table .seasoning-yes {
+    color: #e67e22;
+    font-weight: 600;
+}
+.coal-table .seasoning-no {
+    color: #999;
+}
+
 .delete-btn {
     background: none;
     border: none;

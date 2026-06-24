@@ -49,10 +49,15 @@ function renderTable() {
         glueCell.appendChild(glueInput);
 
         const ratioCell = row.insertCell(6);
-        const ratioInput = createNumberInput(coal.ratio, 0, 999, 0.1, (val) => { coals[idx].ratio = val; });
+        const ratioInput = createNumberInput(coal.ratio, 0, 999, 0.01, (val) => { coals[idx].ratio = val; });
         ratioCell.appendChild(ratioInput);
 
-        const delCell = row.insertCell(7);
+        // 是否调料煤（只读，按名称精确匹配清单派生，不参与计算输入）
+        const seasoningCell = row.insertCell(7);
+        seasoningCell.textContent = isSeasoningCoal(coal.name) ? '是' : '否';
+        seasoningCell.className = isSeasoningCoal(coal.name) ? 'seasoning-yes' : 'seasoning-no';
+
+        const delCell = row.insertCell(8);
         const delBtn = document.createElement('button');
         delBtn.textContent = '🗑️';
         delBtn.className = 'delete-btn';
@@ -83,8 +88,8 @@ function updateResultUI(avg) {
     const items = [
         { label: '灰分 A%', key: 'ash', unit: '%', precision: 2, type: 'ash' },
         { label: '挥发分 V%', key: 'volatile', unit: '%', precision: 2, type: 'volatile' },
-        { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 3, type: 'sulfur' },
-        { label: '粘结 G', key: 'glue', unit: '', precision: 1, type: 'glue' },
+        { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 2, type: 'sulfur' },
+        { label: '粘结 G', key: 'glue', unit: '', precision: 2, type: 'glue' },
         { label: '综合煤价', key: 'price', unit: '¥/t', precision: 2, type: null }
     ];
     container.innerHTML = '';
@@ -299,7 +304,7 @@ function renderOptimizeResult(result) {
         '<div class="card-header"><div class="title-main">' +
         '<span class="title-icon">✅</span> 优化建议 · 综合煤价 ' +
         '<strong>' + result.cost.toFixed(2) + ' ¥/t</strong></div>' +
-        '<div class="title-sub">总配比 ' + result.totalRatio.toFixed(1) + ' 成</div></div>';
+        '<div class="title-sub">总配比 ' + result.totalRatio.toFixed(2) + ' 成</div></div>';
 
     // 建议配比列表
     html += '<div style="padding: 8px 16px; font-size: 13px;">';
@@ -314,7 +319,7 @@ function renderOptimizeResult(result) {
         html += '<tr style="border-bottom:1px solid #f0f0f0;">' +
             '<td style="padding:4px;">' + (coals[i].name || '煤种' + (i+1)) + '</td>' +
             '<td style="text-align:right; padding:4px; ' + highlight + '">' +
-            r.toFixed(1) + '</td></tr>';
+            r.toFixed(2) + '</td></tr>';
     }
     html += '</table></div>';
 
@@ -325,8 +330,8 @@ function renderOptimizeResult(result) {
         var metricItems = [
             { label: '灰分 A%', key: 'ash', unit: '%', precision: 2, constrained: true },
             { label: '挥发分 V%', key: 'volatile', unit: '%', precision: 2, constrained: true },
-            { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 3, constrained: false },
-            { label: '粘结 G', key: 'glue', unit: '', precision: 1, constrained: false }
+            { label: '硫分 S%', key: 'sulfur', unit: '%', precision: 2, constrained: true },
+            { label: '粘结 G', key: 'glue', unit: '', precision: 2, constrained: false }
         ];
         for (var j = 0; j < metricItems.length; j++) {
             var item = metricItems[j];
@@ -376,7 +381,7 @@ function applyOptimizeRatios(ratios) {
     for (var i = 0; i < rows.length && i < ratios.length; i++) {
         var ratioInput = rows[i].cells[6].querySelector('input');
         if (ratioInput) {
-            ratioInput.value = ratios[i].toFixed(1);
+            ratioInput.value = ratios[i].toFixed(2);
             // 同步到 coals 数组
             if (i < coals.length) {
                 coals[i].ratio = ratios[i];
