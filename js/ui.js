@@ -52,7 +52,12 @@ function renderTable() {
         const ratioInput = createNumberInput(coal.ratio, 0, 999, 0.01, (val) => { coals[idx].ratio = val; });
         ratioCell.appendChild(ratioInput);
 
-        const delCell = row.insertCell(7);
+        // 是否调料煤（只读，按名称精确匹配清单派生，不参与计算输入）
+        const seasoningCell = row.insertCell(7);
+        seasoningCell.textContent = isSeasoningCoal(coal.name) ? '是' : '否';
+        seasoningCell.className = isSeasoningCoal(coal.name) ? 'seasoning-yes' : 'seasoning-no';
+
+        const delCell = row.insertCell(8);
         const delBtn = document.createElement('button');
         delBtn.textContent = '🗑️';
         delBtn.className = 'delete-btn';

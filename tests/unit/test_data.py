@@ -149,3 +149,38 @@ def test_first_and_last_coal_complete_data():
         "name": "温明煤", "price": 1020, "ash": 15.0,
         "sulfur": 1.0, "volatile": 33, "glue": 90, "ratio": 0.9
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+# 调料煤识别测试 — isSeasoningCoal()
+# ═══════════════════════════════════════════════════════════════
+
+def test_is_seasoning_coal_matching():
+    """isSeasoningCoal 精确匹配清单 8 个名（含别名），非清单名/空名返回 false"""
+    result = _js1("""
+        var seasoning = ["免洗煤", "金河煤", "金河精煤",
+                         "魏矿", "魏矿精煤",
+                         "无烟沫子", "无烟煤", "无烟沫子精煤"];
+        var nonSeasoning = ["神华9层", "11#主焦混洗", "四股权", "温明煤", "x", ""];
+        report({
+            seasoning: seasoning.map(isSeasoningCoal),
+            nonSeasoning: nonSeasoning.map(isSeasoningCoal),
+            nullName: isSeasoningCoal(null),
+            undefinedName: isSeasoningCoal(undefined)
+        });
+    """)
+    assert result["seasoning"] == [True] * 8
+    # 非清单名、空串、null、undefined 均为 false
+    assert result["nonSeasoning"] == [False, False, False, False, False, False]
+    assert result["nullName"] is False
+    assert result["undefinedName"] is False
+
+
+def test_default_coals_seasoning_flags():
+    """默认 8 煤中仅金河煤(3)、免洗煤(4) 为调料煤"""
+    result = _js1("""
+        coals = getDefaultCoals();
+        report(coals.map(function(c){return isSeasoningCoal(c.name);}));
+    """)
+    expected = [False, False, False, True, True, False, False, False]
+    assert result == expected
