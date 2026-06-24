@@ -11,6 +11,24 @@ const DEFAULT_COALS = [
 
 let coals = [];
 
+// 调料煤清单（canonical 名称 + 别名），优化器按此清单约束配比：
+// 单种 ≤ 1 成、多种合计 ≤ 1.5 成。匹配方式：coal.name 精确等于清单任一项。
+const SEASONING_COAL_NAMES = [
+    "免洗煤", "金河煤", "金河精煤",
+    "魏矿", "魏矿精煤",
+    "无烟沫子", "无烟煤", "无烟沫子精煤"
+];
+
+/**
+ * 判断煤种是否为调料煤（按名称精确匹配清单）
+ * @param {string} name - 煤种名称
+ * @returns {boolean}
+ */
+function isSeasoningCoal(name) {
+    if (!name) return false;
+    return SEASONING_COAL_NAMES.indexOf(name) >= 0;
+}
+
 let targetBounds = {
     ash: { min: 0, max: 11.0 },
     sulfur: { min: 0, max: 1.0 },

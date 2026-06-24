@@ -503,6 +503,30 @@ function optimizeBlending(coals, bounds) {
     A.push(rowTotalGE);
     bVec.push(-1000);
 
+    // 调料煤约束：单种 ≤ 1 成（y_i ≤ 100），多种合计 ≤ 1.5 成（Σy_i ≤ 150）
+    // 仅对名称命中调料煤清单的煤种生效（见 main.js isSeasoningCoal）
+    var seasoningIdx = [];
+    for (var i = 0; i < n; i++) {
+        if (isSeasoningCoal(coals[i].name)) seasoningIdx.push(i);
+    }
+    // 单种上限：每个调料煤 y_i ≤ 100
+    for (var s = 0; s < seasoningIdx.length; s++) {
+        var rowSingle = [];
+        for (var i = 0; i < n; i++) rowSingle.push(0);
+        rowSingle[seasoningIdx[s]] = 1;
+        A.push(rowSingle);
+        bVec.push(100);
+    }
+    // 合计上限：Σ 调料煤 y_i ≤ 150（仅当存在 ≥2 种调料煤时才追加）
+    if (seasoningIdx.length > 1) {
+        var rowSum = [];
+        for (var i = 0; i < n; i++) {
+            rowSum.push(seasoningIdx.indexOf(i) >= 0 ? 1 : 0);
+        }
+        A.push(rowSum);
+        bVec.push(150);
+    }
+
     // ── 调用 MILP 求解（前 n 个变量为整数）──
     var result = _milpSolve(c, A, bVec, n);
 

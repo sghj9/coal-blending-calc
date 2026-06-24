@@ -301,3 +301,99 @@ class TestOptimizeBlending:
         assert abs(result["totalRatio"] - 10.0) < 1e-10, (
             f"总配比 {result['totalRatio']} 应等于 10 成（等式约束）"
         )
+
+
+# ═══════════════════════════════════════════════════════════════
+# 调料煤约束测试
+# ═══════════════════════════════════════════════════════════════
+
+class TestSeasoningCoalConstraint:
+    """调料煤：单种 ≤1 成、合计 ≤1.5 成"""
+
+    def test_seasoning_coal_single_capped_at_1(self):
+        """默认煤中免洗煤(索引4)/金河煤(索引3)为调料煤，优化后每种 ≤ 1 成"""
+        result = _call_optimize("getDefaultCoals()")
+        assert result["success"] is True
+        EPS = 1e-6
+        # 默认煤顺序固定：3=金河煤, 4=免洗煤（见 test_data.test_default_coal_names）
+        for i in (3, 4):
+            assert result["ratios"][i] <= 1.0 + EPS, (
+                f"调料煤(索引{i}) 配比 {result['ratios'][i]} 应 ≤ 1 成"
+            )
+
+    def test_seasoning_coal_sum_capped_at_1_5(self):
+        """默认煤中调料煤（金河煤+免洗煤）合计 ≤ 1.5 成"""
+        result = _call_optimize("getDefaultCoals()")
+        assert result["success"] is True
+        seasoning_sum = result["ratios"][3] + result["ratios"][4]
+        assert seasoning_sum <= 1.5 + 1e-6, f"调料煤合计 {seasoning_sum} 应 ≤ 1.5 成"
+
+    def test_seasoning_coal_alias_recognized(self):
+        """别名（金河精煤/魏矿精煤/无烟沫子精煤）被识别为调料煤，单种 ≤ 1 成"""
+        coals_js = """
+            [{name:"普通煤", price:900, ash:10, sulfur:0.8, volatile:30, glue:80},
+             {name:"金河精煤", price:500, ash:6, sulfur:0.2, volatile:30, glue:20},
+             {name:"魏矿精煤", price:510, ash:6, sulfur:0.3, volatile:31, glue:20},
+             {name:"无烟沫子精煤", price:520, ash:6, sulfur:0.4, volatile:31, glue:20}]
+        """
+        # 目标范围宽松，让低成本调料煤本可被大量选用，但受 ≤1 成约束
+        bounds_js = """
+            {ash: {min: 0, max: 11.0}, sulfur: {min: 0, max: 1.0},
+             volatile: {min: 28, max: 34}, glue: {min: 0, max: 100}}
+        """
+        result = _call_optimize(coals_js, bounds_js)
+        assert result["success"] is True, f"应有可行解: {result.get('message')}"
+        EPS = 1e-6
+        # 索引 1/2/3 为调料煤，各自 ≤ 1 成
+        for i in (1, 2, 3):
+            assert result["ratios"][i] <= 1.0 + EPS, (
+                f"调料煤(索引{i}) 配比 {result['ratios'][i]} 应 ≤ 1 成"
+            )
+        # 三种调料煤合计 ≤ 1.5 成
+        seasoning_sum = sum(result["ratios"][i] for i in (1, 2, 3))
+        assert seasoning_sum <= 1.5 + EPS, f"调料煤合计 {seasoning_sum} 应 ≤ 1.5 成"
+
+    def test_seasoning_coal_brute_force_verification(self):
+        """穷举验证：3 煤种（含 2 调料煤）下 MILP 解 = 含调料煤约束的穷举最优"""
+        results = run_js("""
+            coals = [
+                {name:"普通煤", price:900, ash:10, sulfur:0.8, volatile:30, glue:80},
+                {name:"免洗煤", price:500, ash:5, sulfur:0.5, volatile:32, glue:0},
+                {name:"金河煤", price:600, ash:6, sulfur:0.2, volatile:30, glue:20}
+            ];
+            var __bounds = {
+                ash: {min: 0, max: 11}, sulfur: {min: 0, max: 1},
+                volatile: {min: 28, max: 34}, glue: {min: 0, max: 100}
+            };
+            var opt = optimizeBlending(coals, __bounds);
+            // 穷举：等式 y0+y1+y2=1000，调料煤 y1,y2 各 ≤100，y1+y2 ≤150
+            var bestCost = Infinity, bestY = null;
+            for (var y1 = 0; y1 <= 100; y1++) {
+                for (var y2 = 0; y2 <= 100; y2++) {
+                    if (y1 + y2 > 150) continue;
+                    var y0 = 1000 - y1 - y2;
+                    if (y0 < 0 || y0 > 1000) continue;
+                    var w0 = y0/1000, w1 = y1/1000, w2 = y2/1000;
+                    var ash = coals[0].ash*w0 + coals[1].ash*w1 + coals[2].ash*w2;
+                    var sulfur = coals[0].sulfur*w0 + coals[1].sulfur*w1 + coals[2].sulfur*w2;
+                    var vol = coals[0].volatile*w0 + coals[1].volatile*w1 + coals[2].volatile*w2;
+                    if (ash < 0 || ash > 11) continue;
+                    if (vol < 28 || vol > 34) continue;
+                    if (sulfur < 0 || sulfur > 1) continue;
+                    var cost = coals[0].price*w0 + coals[1].price*w1 + coals[2].price*w2;
+                    if (cost < bestCost - 1e-10) { bestCost = cost; bestY = [y0,y1,y2]; }
+                }
+            }
+            report({
+                optSuccess: opt.success, optCost: opt.cost,
+                bruteCost: bestCost,
+                optR1: opt.ratios[1], optR2: opt.ratios[2]
+            });
+        """)
+        r = results[0]
+        assert r["optSuccess"] is True
+        assert r["bruteCost"] is not None, "穷举应找到可行解"
+        assert abs(r["optCost"] - r["bruteCost"]) < 1e-6, (
+            f"MILP cost={r['optCost']} 应与 brute-force cost={r['bruteCost']} 一致"
+        )
+
