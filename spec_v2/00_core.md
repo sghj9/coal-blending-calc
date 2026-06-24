@@ -60,7 +60,7 @@ coal_blending_calc/
 | `js/optimizer.js` | `simplex()`、`_runSimplexPhase()`、`_pivot()`、`optimizeBlending()` | 两阶段单纯形法求解器、配比优化接口 |
 | `js/storage.js` | （空，仅注释） | 预留 localStorage / IndexedDB 扩展点 |
 | `css/style.css` | 全部 CSS 规则（从原 HTML `<style>` 块提取，原样保留） | 页面样式、响应式布局 |
-| `data/defaultCoal.json` | 8 条默认煤种数据（JSON 数组） | 数据镜像文件，供独立查看/编辑；运行时使用 `main.js` 中的 `DEFAULT_COALS` 常量 |
+| `data/defaultCoal.json` | 4 条默认煤种数据（JSON 数组） | 数据镜像文件，供独立查看/编辑；运行时使用 `main.js` 中的 `DEFAULT_COALS` 常量 |
 
 ### 1.2 脚本加载顺序
 

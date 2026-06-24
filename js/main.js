@@ -1,12 +1,8 @@
 const DEFAULT_COALS = [
-    { name: "神华9层", price: 650, ash: 6.5, sulfur: 3.0, volatile: 31, glue: 90, ratio: 1.0 },
-    { name: "11#主焦混洗", price: 900, ash: 9.0, sulfur: 0.8, volatile: 29, glue: 90, ratio: 2.0 },
-    { name: "四股权", price: 1150, ash: 11.5, sulfur: 3.4, volatile: 34, glue: 90, ratio: 1.5 },
-    { name: "金河煤", price: 600, ash: 6.0, sulfur: 0.2, volatile: 30, glue: 20, ratio: 0.6 },
-    { name: "免洗煤", price: 500, ash: 5.0, sulfur: 0.5, volatile: 32, glue: 0, ratio: 0.5 },
-    { name: "圆通2硫", price: 1000, ash: 15.0, sulfur: 2.0, volatile: 31, glue: 88, ratio: 0.5 },
-    { name: "圆通1.5硫", price: 700, ash: 15.0, sulfur: 1.5, volatile: 32, glue: 86, ratio: 1.0 },
-    { name: "温明煤", price: 1020, ash: 15.0, sulfur: 1.0, volatile: 33, glue: 90, ratio: 0.9 }
+    { name: "温明15灰精煤", price: 950, ash: 15.22, sulfur: 0.68, volatile: 34.14, glue: 90, ratio: 4.5 },
+    { name: "四股泉", price: 1067, ash: 11.5, sulfur: 3.4, volatile: 34, glue: 90, ratio: 3 },
+    { name: "混洗煤（2-1/鑫发矿1:1）", price: 690, ash: 5.62, sulfur: 0.42, volatile: 29.98, glue: 85, ratio: 2 },
+    { name: "免洗煤", price: 100, ash: 5, sulfur: 0.5, volatile: 32, glue: 0, ratio: 0.5 }
 ];
 
 let coals = [];
@@ -30,10 +26,10 @@ function isSeasoningCoal(name) {
 }
 
 let targetBounds = {
-    ash: { min: 0, max: 11.0 },
-    sulfur: { min: 0, max: 1.0 },
-    volatile: { min: 28, max: 34 },
-    glue: { min: 75, max: 100 }
+    ash: { min: 11, max: 12 },
+    sulfur: { min: 1, max: 2 },
+    volatile: { min: 28, max: 33 },
+    glue: { min: 85, max: 100 }
 };
 
 function getDefaultCoals() {
