@@ -75,11 +75,49 @@ function renderTable() {
 
 function updateTotalRatioDisplay() {
     let total = coals.reduce((sum, c) => sum + (c.ratio > 0 ? c.ratio : 0), 0);
-    if (total > 10.005) {
-        document.getElementById('totalRatioInfo').innerHTML = `⚠️ 当前总配比为 ${total.toFixed(2)} 成（超出十成，请注意）`;
-    } else {
-        document.getElementById('totalRatioInfo').innerHTML = `📐 当前总配比为 ${total.toFixed(2)} 成`;
+
+    // 调料煤统计
+    var seasoningCoals = [];
+    var seasoningTotal = 0;
+    for (var i = 0; i < coals.length; i++) {
+        if (isSeasoningCoal(coals[i].name) && coals[i].ratio > 0) {
+            seasoningCoals.push({ name: coals[i].name, ratio: coals[i].ratio });
+            seasoningTotal += coals[i].ratio;
+        }
     }
+    seasoningTotal = Math.round(seasoningTotal * 100) / 100;
+
+    var html = '';
+    if (total > 10.005) {
+        html += '⚠️ 当前总配比为 ' + total.toFixed(2) + ' 成（超出十成，请注意）';
+    } else {
+        html += '📐 当前总配比为 ' + total.toFixed(2) + ' 成';
+    }
+
+    // 调料煤规则说明
+    html += '<br><span style="font-size:0.75rem;color:#888;">📌 调料煤规则：单个 ≤ 1 成，合计 ≤ 1.5 成';
+
+    if (seasoningCoals.length > 0) {
+        var singleWarnings = [];
+        for (var j = 0; j < seasoningCoals.length; j++) {
+            if (seasoningCoals[j].ratio > 1.005) {
+                singleWarnings.push(seasoningCoals[j].name + '(' + seasoningCoals[j].ratio.toFixed(2) + '成)');
+            }
+        }
+        if (singleWarnings.length > 0) {
+            html += ' | ⚠️ 单种超标：' + singleWarnings.join('、');
+        }
+        if (seasoningTotal > 1.505) {
+            html += ' | ⚠️ 合计超标：' + seasoningTotal.toFixed(2) + ' 成';
+        } else {
+            html += ' | 当前调料煤合计 ' + seasoningTotal.toFixed(2) + ' 成';
+        }
+    } else {
+        html += ' | 当前无调料煤';
+    }
+    html += '</span>';
+
+    document.getElementById('totalRatioInfo').innerHTML = html;
 }
 
 function updateResultUI(avg) {
@@ -280,6 +318,91 @@ function addCoalManually() {
 }
 
 /**
+ * 渲染三种优化策略选择卡片
+ */
+function renderOptimizeChoices() {
+    var container = document.getElementById('optimizeResultContainer');
+    if (!container) return;
+
+    container.style.display = 'block';
+
+    var choices = [
+        { id: 'lowestCost', icon: '💰', title: '最低成本', desc: '在满足目标范围约束下，使综合煤价最低', available: true },
+        { id: 'mostBalanced', icon: '⚖️', title: '配比最均衡', desc: '使各煤种配比尽可能均匀分布', available: false },
+        { id: 'safest', icon: '🛡️', title: '指标最安全', desc: '使混合指标尽量远离目标范围边界', available: false }
+    ];
+
+    var html = '<div class="card" style="border-left: 4px solid #6c5ce7;">' +
+        '<div class="card-header"><div class="title-main">' +
+        '<span class="title-icon">🔍</span> 选择优化策略</div>' +
+        '<div class="title-sub">请选择一种优化目标</div></div>' +
+        '<div style="display:flex; flex-direction:column; gap:10px; padding:8px 0;">';
+
+    for (var i = 0; i < choices.length; i++) {
+        var c = choices[i];
+        var btnClass = c.available ? 'optimize-choice-btn' : 'optimize-choice-btn optimize-choice-disabled';
+        var statusBadge = c.available ? '' : '<span style="font-size:0.7rem;background:#f0f0f0;color:#999;padding:2px 8px;border-radius:20px;margin-left:8px;">功能开发中</span>';
+        html += '<button class="' + btnClass + '" data-choice="' + c.id + '" ' + (c.available ? '' : 'disabled') + '>' +
+            '<span style="font-size:1.5rem;">' + c.icon + '</span>' +
+            '<div style="flex:1;text-align:left;">' +
+            '<div style="font-weight:700;font-size:1rem;">' + c.title + statusBadge + '</div>' +
+            '<div style="font-size:0.8rem;color:#888;margin-top:2px;">' + c.desc + '</div>' +
+            '</div>' +
+            '<span style="font-size:0.8rem;color:#bbb;">›</span>' +
+            '</button>';
+    }
+
+    html += '</div></div>';
+    container.innerHTML = html;
+
+    // 绑定点击事件
+    var buttons = container.querySelectorAll('.optimize-choice-btn');
+    for (var k = 0; k < buttons.length; k++) {
+        buttons[k].addEventListener('click', function(e) {
+            var choice = this.getAttribute('data-choice');
+            if (choice === 'lowestCost') {
+                runLowestCostOptimize();
+            } else {
+                showOptimizeUnavailable(choice);
+            }
+        });
+    }
+}
+
+/**
+ * 执行最低成本优化并渲染结果
+ */
+function runLowestCostOptimize() {
+    var result = optimizeBlending(coals, targetBounds);
+    renderOptimizeResult(result);
+}
+
+/**
+ * 显示优化策略不可用提示
+ * @param {string} choice - 优化策略ID
+ */
+function showOptimizeUnavailable(choice) {
+    var container = document.getElementById('optimizeResultContainer');
+    if (!container) return;
+
+    var titles = { mostBalanced: '配比最均衡', safest: '指标最安全' };
+    var title = titles[choice] || '该策略';
+
+    container.innerHTML = '<div class="card" style="border-left: 4px solid #f39c12;">' +
+        '<div class="card-header"><div class="title-main">' +
+        '<span class="title-icon">🚧</span> ' + title + '</div></div>' +
+        '<div class="metric-row"><div class="metric-name" style="color:#f39c12;">' +
+        '⏳ 功能开发中，敬请期待</div></div>' +
+        '<div class="btn-center" style="padding:12px 0;">' +
+        '<button class="btn-unified" id="backToChoicesBtn">← 返回选择</button></div></div>';
+
+    var backBtn = document.getElementById('backToChoicesBtn');
+    if (backBtn) {
+        backBtn.addEventListener('click', renderOptimizeChoices);
+    }
+}
+
+/**
  * 渲染配比优化建议结果
  * @param {Object} result - optimizeBlending() 的返回值
  */
@@ -357,7 +480,10 @@ function renderOptimizeResult(result) {
     // 操作按钮
     html += '<div class="btn-center" style="padding: 12px 0;">' +
         '<button class="btn-unified btn-green" id="applyOptimizeBtn">' +
-        '📋 应用建议配比</button></div>';
+        '📋 应用建议配比</button></div>' +
+        '<div class="btn-center" style="padding: 4px 0 12px 0;">' +
+        '<button class="btn-unified" id="backToChoicesFromResultBtn" style="background:#888;min-width:160px;font-size:0.9rem;">' +
+        '← 返回选择</button></div>';
 
     html += '</div>';  // end card
 
@@ -369,6 +495,11 @@ function renderOptimizeResult(result) {
         applyBtn.addEventListener('click', function() {
             applyOptimizeRatios(result.ratios);
         });
+    }
+    // 绑定"返回选择"按钮事件
+    var backBtn = document.getElementById('backToChoicesFromResultBtn');
+    if (backBtn) {
+        backBtn.addEventListener('click', renderOptimizeChoices);
     }
 }
 

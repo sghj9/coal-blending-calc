@@ -272,6 +272,39 @@ body {
 }
 .delete-btn:active { background: #fff0ee; }
 
+/* 优化策略选择按钮 */
+.optimize-choice-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid #e0e5ec;
+    border-radius: 16px;
+    background: #fafbfc;
+    cursor: pointer;
+    transition: 0.2s;
+    text-align: left;
+    font-family: inherit;
+}
+.optimize-choice-btn:hover {
+    border-color: #6c5ce7;
+    background: #f5f3ff;
+    box-shadow: 0 2px 8px rgba(108,92,231,0.1);
+}
+.optimize-choice-btn:active {
+    transform: scale(0.98);
+}
+.optimize-choice-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+.optimize-choice-disabled:hover {
+    border-color: #e0e5ec;
+    background: #fafbfc;
+    box-shadow: none;
+}
+
 .total-summary {
     margin-top: 16px;
     background: #e6f0fa;
