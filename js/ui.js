@@ -422,7 +422,6 @@ function renderOptimizeResult(result) {
     }
 
     // ── 构建结果 HTML ──
-    var coals = window.coals || [];
     var html = '<div class="card" style="border-left: 4px solid #27ae60;">' +
         '<div class="card-header"><div class="title-main">' +
         '<span class="title-icon">✅</span> 优化建议 · 综合煤价 ' +
