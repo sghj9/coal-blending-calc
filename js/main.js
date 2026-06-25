@@ -177,11 +177,8 @@ function handleOptimize() {
         return;
     }
 
-    // 调用优化算法
-    var result = optimizeBlending(coals, targetBounds);
-
-    // 渲染优化结果
-    renderOptimizeResult(result);
+    // 先展示三种优化策略选择
+    renderOptimizeChoices();
 }
 
 // init() 由 index.html 在所有脚本加载完成后调用

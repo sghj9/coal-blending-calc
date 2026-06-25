@@ -286,3 +286,75 @@ def test_total_ratio_at_or_under_10_proceeds():
     assert result2["alertMsg"] == ''
     # 实际总配比=5，ash=(10×3+20×2)/5=(30+40)/5=14.0
     assert result2["ash"] == pytest.approx(14.0)
+
+
+# ═══════════════════════════════════════════════════════════════
+# renderOptimizeResult() — 全局 coals 访问测试
+# ═══════════════════════════════════════════════════════════════
+
+def test_render_optimize_result_reads_global_coals():
+    """renderOptimizeResult 使用 let 声明的全局 coals（非 window.coals）渲染煤种数据行
+
+    回归 bug：renderOptimizeResult 曾用 var coals = window.coals || []，
+    但 let 声明的全局变量不挂在 window 上 → 表格无数据行。
+    修复后直接引用全局 coals，表格应包含煤种名称。
+    """
+    import json
+
+    result = _js1("""
+        // 设置全局 coals（模拟 main.js 中的 let coals）
+        coals = [
+            {name:"测试煤A", price:100, ash:10, sulfur:0.5, volatile:30, glue:80, ratio:3},
+            {name:"测试煤B", price:200, ash:15, sulfur:0.8, volatile:28, glue:75, ratio:7}
+        ];
+
+        // 构造一个合法的优化结果
+        var mockResult = {
+            success: true,
+            cost: 170.0,
+            totalRatio: 10.0,
+            ratios: [3.0, 7.0],
+            metrics: {ash: 13.5, volatile: 28.6, sulfur: 0.71, glue: 76.5},
+            status: {ash: true, volatile: true, sulfur: true, glue: true}
+        };
+
+        // 捕获 renderOptimizeResult 写入的 innerHTML
+        var capturedHtml = '';
+        var origGetEl = document.getElementById;
+        document.getElementById = function(id) {
+            if (id === 'optimizeResultContainer') {
+                return {
+                    style: {},
+                    get innerHTML() { return capturedHtml; },
+                    set innerHTML(val) { capturedHtml = val; },
+                    addEventListener: function(evt, fn) {},
+                    querySelectorAll: function(sel) { return []; },
+                    querySelector: function(sel) { return null; }
+                };
+            }
+            // optimizeResultContainer 设置后 applyOptimizeBtn 和 backToChoicesFromResultBtn 查询
+            if (id === 'applyOptimizeBtn' || id === 'backToChoicesFromResultBtn') {
+                return {
+                    addEventListener: function(evt, fn) {},
+                    style: {},
+                    querySelector: function(sel) { return null; }
+                };
+            }
+            return origGetEl(id);
+        };
+
+        renderOptimizeResult(mockResult);
+
+        report({
+            hasCoalA: capturedHtml.indexOf('测试煤A') !== -1,
+            hasCoalB: capturedHtml.indexOf('测试煤B') !== -1,
+            hasRatioA: capturedHtml.indexOf('3.00') !== -1,
+            hasRatioB: capturedHtml.indexOf('7.00') !== -1,
+            hasCost: capturedHtml.indexOf('170.00') !== -1
+        });
+    """)
+    assert result["hasCoalA"], "渲染结果应包含煤种A名称"
+    assert result["hasCoalB"], "渲染结果应包含煤种B名称"
+    assert result["hasRatioA"], "渲染结果应包含煤种A配比 3.00"
+    assert result["hasRatioB"], "渲染结果应包含煤种B配比 7.00"
+    assert result["hasCost"], "渲染结果应包含综合煤价 170.00"
